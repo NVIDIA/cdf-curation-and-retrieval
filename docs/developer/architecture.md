@@ -7,37 +7,31 @@ SPDX-License-Identifier: Apache-2.0
 
 ## System at a glance
 
-Overall **Cosmos Data Factory Curation and Retrieval** architecture
-(Cosmos Curator, Cosmos Dataset Search, and Data Mining):
+Overall **Physical AI Data Factory — Curation and Retrieval** architecture
+(Cosmos Curator and Data Mining):
 
-![CDF Curation and Retrieval Architecture](../assets/CDF-CC-CDS-TDM.png)
-
-Curator + Data Mining only (no Dataset Search):
-
-![CDF Curator and Data Mining Architecture](../assets/CDF_CC_and_TDM.png)
+![PAIDF Curation and Retrieval Architecture](../assets/PAIDF_CC_and_TDM.png)
 
 Cosmos Curator video/image curation pipeline only (split, caption, embed,
 dedup, shard):
 
-![Smart Data Curation Cosmos Curator](../assets/smart-data-curation-cosmos-curator.png)
+![Smart Data Curation — Cosmos Curator](../assets/smart-data-curation-cosmos-curator.png)
 
-Operator and orchestration layers:
+Operator and glue layers:
 
 ```mermaid
 flowchart LR
   ops[Operator]
   make[Make targets]
-  workflows[Workflows and adapters]
+  glue[Internal workflows and adapters]
   curator[Cosmos Curator image]
   tao[TAO Data Services image]
-  cds[Cosmos Dataset Search at CDS_URL]
   data[Host DATA_DIR mounted at /data]
 
   ops --> make
-  make --> workflows
-  workflows --> curator
-  workflows --> tao
-  workflows --> cds
+  make --> glue
+  glue --> curator
+  glue --> tao
   curator --> data
   tao --> data
 ```
@@ -45,21 +39,15 @@ flowchart LR
 | Layer | Role |
 |-------|------|
 | **Make** | Public interface (`make help`) |
-| **apps/cli** | Helper CLI that Make calls: argument parsing, JSON and error output |
 | **apps/workflows** | Validation order, handoff policy, JSON-ready results |
-| **packages** | Domain types, ports (external-boundary protocols), in-process analytics |
-| **adapters** | Docker argument construction, parquet prep, path mounts, CDS and Cosmos-Embed1 HTTP clients |
+| **adapters** | Docker argument construction, parquet prep, path mounts |
 | **Pulled images** | Cosmos Curator; TAO Toolkit Data Services (`embedding`, `tmm`) |
-| **Cosmos Dataset Search** | Local Compose on a laptop; elsewhere a separately deployed service reached through `CDS_URL` |
 
-There is no shared scheduler or cross-step state in this repository. Operators
-(or an external orchestrator) sequence Make targets. CDS on a laptop is
-Compose; anywhere else CDS is a prerequisite endpoint deployed from its own
-repository and reached through `CDS_URL`.
+There is no shared scheduler or cross-step state in this repository. Sequence
+Make targets yourself or from an external orchestrator.
 
 Clean-architecture detail:
-[cdf-clean-architecture.md](../architecture/cdf-clean-architecture.md).
-
+[paidf-clean-architecture.md](../architecture/paidf-clean-architecture.md).
 
 ## Product engines
 
@@ -83,18 +71,14 @@ flowchart TB
   curator[Cosmos Curator]
   tmm[nearest neighbors or unique match]
   out[Mined parquet / UNM output dir]
-  cdsIngest[CDS ingest]
-  cdsSearch[CDS text search]
 
   images --> imgEmb
   captions --> txtEmb
   videos --> curator
   imgEmb --> tmm
   txtEmb --> tmm
-  curator -->|IV2 or CE1 parquet| tmm
+  curator --> tmm
   tmm --> out
-  curator -->|CE1 parquet| cdsIngest
-  cdsIngest --> cdsSearch
 ```
 
 Declare the producer family when mining with:
@@ -157,13 +141,7 @@ Every TAO Data Services `embedding` and `tmm` run requires
 - Direct Make variables are validated and written to a temporary read-only
   spec.
 
-## CDS Path D
+## Cosmos Dataset Search
 
-Local compose, CE1 ingest, and text search (public GA):
-[Cosmos Dataset Search](../user-guide/operations-cds.md).
-
-CDS is a separate engine from Data Mining. Curator CE1 feeds Path D.
-InternVideo2 and CLIP/SigLIP remain Path C (mining) unless a CDS deployment
-documents otherwise.
-The public profile adds `deploy/compose/docker-compose.embed.yml`,
-which serves Cosmos-Embed1 at host port 9000 for text search.
+CDS deployment and retrieval are out of scope for this product path. Curator
+CE1/IV2 and TAO CLIP/SigLIP embeddings are used here for TMM handoffs.

@@ -1,11 +1,13 @@
 # =============================================================================
-# Smart City Traffic -- Split + CE1 + captions (overrides only)
+# Smart City Traffic -- Minimal first-run split (overrides only)
 # =============================================================================
-# Split both shipped intersection clips, write Qwen3-VL captions, and emit
-# Cosmos-Embed1 embeddings. No classifier, SAM3, caption enhance, or
-# super-resolution. Full kitchen-sink recipe: split.yaml in this directory.
+# Split + Cosmos-Embed1 embeddings only. No captioning, classifier, SAM3,
+# caption enhance, or super-resolution. Use this for Path A first-run / smoke.
+# Full kitchen-sink recipe: split.yaml in this directory.
 #
-# Input: DATA_DIR/videos (SDG-Intersection-01.mp4 and SDG-Intersection-02.mp4).
+# Input: DATA_DIR/videos. Shipped first-run clip is SDG-Intersection-01.mp4
+# (~89 s). limit: 1 processes the first file in that directory (01 sorts first).
+# Do not mix this recipe with SQA execution.
 #
 # All omitted keys fall back to parser defaults.
 # See configs/split.yaml for the full reference.
@@ -18,23 +20,14 @@ input_video_path: /data/videos
 output_clip_path: /data/output/split-minimal
 model_weights_path: "/config/models"
 
-# -- Splitting: 10 s stride on the shipped ~89 s / ~130 s clips --
+# -- Splitting: 10 s stride on the ~89 s smoke clip --
 splitting_algorithm: "fixed-stride"
 fixed_stride_split_duration: 10
 fixed_stride_min_clip_length_s: 2.0
+limit: 1
 
-# -- Captioning: Qwen3-VL-30B FP8 (in-process weights under MODELS_DIR) --
-generate_captions: true
-captioning_algorithm: "qwen3_vl_30b_fp8"
-captioning_prompt_variant: "default"
-captioning_window_size: 60
-captioning_sampling_fps: 2.0
-captioning_max_output_tokens: 4096
-vllm_sampling_temperature: 0.1
-vllm_sampling_top_p: 0.001
-vllm_sampling_repetition_penalty: 1.05
-
-# -- Skip kitchen-sink stages --
+# -- First-run: skip VLM/LLM stages --
+generate_captions: false
 enhance_captions: false
 video_classifier: false
 motion_filter: "disable"
@@ -46,11 +39,11 @@ sam3: false
 event_captioning: false
 super_resolution: false
 
-# -- Embedding (Path C / Path D handoff producer) --
+# -- Embedding (Path C handoff producer) --
 generate_embeddings: true
 embedding_algorithm: "cosmos-embed1-224p"
 embedding_batch_size: 4
 
 upload_clips: true
-write_all_caption_json: true
+write_all_caption_json: false
 perf_profile: false

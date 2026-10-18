@@ -62,15 +62,6 @@ class SearchQueryInput:
     top_k: int = 10
     filters_json: str | None = None
     generate_asset_url: bool = False
-    annotation_labels: Sequence[str] = ()
-    exclude_annotation_labels: Sequence[str] = ()
-    project_source: Sequence[str] = ()
-    clf_json: str | None = None
-    caption_query: str | None = None
-    auto_rewrite: bool | None = None
-    caption_extra_queries: Sequence[str] | None = None
-    classifier_label: str | None = None
-    probability_expression: str | None = None
 
 
 @dataclass(frozen=True)
@@ -138,10 +129,7 @@ def build_search_query(request: SearchQueryInput) -> SearchQuery:
     """Build a domain search query from raw command inputs."""
     embedding = None
     if request.embedding:
-        try:
-            raw_embedding = json.loads(request.embedding)
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"--embedding must be valid JSON: {exc}") from exc
+        raw_embedding = json.loads(request.embedding)
         if not isinstance(raw_embedding, list):
             raise ValueError("--embedding must be a JSON array of floats")
         embedding = []
@@ -150,15 +138,6 @@ def build_search_query(request: SearchQueryInput) -> SearchQuery:
                 raise ValueError("--embedding must be a JSON array of floats")
             embedding.append(float(value))
     filters = _parse_filters(request.filters_json)
-    clf: Mapping[str, Any] = {}
-    if request.clf_json:
-        try:
-            raw_clf = json.loads(request.clf_json)
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"--clf-json must be valid JSON: {exc}") from exc
-        if not isinstance(raw_clf, dict):
-            raise ValueError("--clf-json must contain a JSON object")
-        clf = raw_clf
     return SearchQuery(
         text=request.text,
         embedding=embedding,
@@ -168,19 +147,6 @@ def build_search_query(request: SearchQueryInput) -> SearchQuery:
         top_k=request.top_k,
         filters=filters,
         generate_asset_url=request.generate_asset_url,
-        annotation_labels=tuple(request.annotation_labels),
-        exclude_annotation_labels=tuple(request.exclude_annotation_labels),
-        project_source=tuple(request.project_source),
-        clf=clf,
-        caption_query=request.caption_query,
-        auto_rewrite=request.auto_rewrite,
-        caption_extra_queries=(
-            tuple(request.caption_extra_queries)
-            if request.caption_extra_queries is not None
-            else None
-        ),
-        classifier_label=request.classifier_label,
-        probability_expression=request.probability_expression,
     )
 
 

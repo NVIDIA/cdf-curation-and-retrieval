@@ -5,23 +5,13 @@ SPDX-License-Identifier: Apache-2.0
 
 # Samples and Cookbooks
 
-1. [About Curation and Retrieval](README.md)
-2. [Installation](installation.md)
-3. [Samples and Cookbooks](samples-and-cookbooks.md)
-4. [Get Started](getting-started.md)
-5. [Cosmos Curator](operations-curator.md)
-6. [Data Mining](operations-tao-mining.md)
-7. [Cosmos Dataset Search](operations-cds.md)
-8. [VLM and LLM Endpoints](vlm-llm-endpoints.md)
-9. [Troubleshooting](troubleshooting.md)
-
 Cookbooks ship engine-native configs. Traffic and warehouse sample MP4s come
 from NGC, not from this repository. Stage them into each cookbook `videos/`
 folder before Path A. Do not commit secrets into cookbook files.
 
 Index: [`../../cookbook/README.md`](../../cookbook/README.md).
 
-## Download VSS Sample Clips
+## Download VSS sample clips
 
 The clips are the NGC resource
 `nvidia/vss-developer/dev-profile-sample-data:3.2.0`. That archive mixes
@@ -60,7 +50,7 @@ ngc --version
 ```
 
 Configure the CLI with your API key. Do not put the key on the command line.
-For how to create a key, refer to NGC API keys in the NGC documentation.
+For how to create a key, see NGC API keys in the NGC documentation.
 
 ```bash
 ngc config set
@@ -87,7 +77,7 @@ rm -rf dev-profile-sample-data_v3.2.0
 
 The extract layout is `sample-data/dev-profile-sample-data/*.mp4`.
 
-### Copy Clips into the Cookbooks
+### Copy clips into the cookbooks
 
 Use copies, not symlinks. Make bind-mounts the cookbook directory into the
 Curator container; a host symlink that points outside that mount is not
@@ -120,28 +110,24 @@ Leave these extract files unused (they do not belong to either cookbook):
 
 Keep docs and other non-media files **outside** `videos/`.
 
-## Which Sample to Use
+## Which sample to use
 
 | Goal | Cookbook / sample | What you must change |
 |------|-------------------|----------------------|
-| Curator traffic first-run | `cookbook/traffic-video-analytics/split-minimal.yaml` | Stage NGC clips into `videos/` (above); `DATA_DIR` is the cookbook dir (both clips, CE1 + captions) |
-| Path D CDS ingest of that CE1 output | [Cosmos Dataset Search](operations-cds.md) | Collection **id**; `CURATOR_DIR` = `output/split-minimal`; public GA |
+| Curator traffic first-run | `cookbook/traffic-video-analytics/split-minimal.yaml` | Stage NGC clips into `videos/` (above); `DATA_DIR` is the cookbook dir (`limit: 1`) |
 | Curator traffic video | `cookbook/traffic-video-analytics/` | Optional: point `DATA_DIR` at a work dir with your MP4s; VLM endpoints for full `split.yaml` |
 | Curator warehouse first-run | `cookbook/warehouse-safety/split-minimal.yaml` | Stage NGC clips into `videos/` (above); `DATA_DIR` is the cookbook dir (`limit: 1`) |
-| Curator PhysicalAI-AV multi-cam first-run | `cookbook/physical-ai-av/caption-multicam.yaml` | HF login + `python -m adapters.physical_ai_av.prepare_sessions --output-dir $DATA`; uses `videos/<uuid>/` session folders; VLM/LLM endpoints |
-| Curator PhysicalAI-AV SAM3 events | `cookbook/physical-ai-av/split-singlecam.yaml` or `split-multicam.yaml` | Same prepare step; `PIXI_ENV=sam3`; VLM/LLM endpoints |
 | Curator warehouse video | `cookbook/warehouse-safety/` | Optional: point `DATA_DIR` at a work dir with your MP4s; VLM endpoints for full `split.yaml` |
 | Nearest neighbors | `cookbook/nearest-neighbor-mining/` | Ensure `DATA_DIR` has `S.parquet` / `B.parquet`; adjust YAML paths if needed |
 | Unique neighbor matching | `cookbook/unique-neighbor-matching/` | Same S/B layout; add detections for `class_stratified` |
-| Image embeddings | Make recipe in [Data Mining](operations-tao-mining.md) | `rows.json` filepaths under `DATA_DIR` |
-| Text embeddings | Make recipe in [Data Mining](operations-tao-mining.md) | parquet with `text` column |
+| Image embeddings | Make recipe in [Operations: Data Mining](operations-tao-mining.md) | `rows.json` filepaths under `DATA_DIR` |
+| Text embeddings | Make recipe in [Operations: Data Mining](operations-tao-mining.md) | parquet with `text` column |
 
 Mining cookbooks need **no API keys** beyond registry login to pull the image.
-Curator caption stages might need Hugging Face tokens and, for endpoint-backed cookbooks,
-live vision-language model (VLM) and large language model (LLM) services.
-Refer to [VLM and LLM Endpoints](vlm-llm-endpoints.md).
+Curator caption stages may need HF tokens and, for endpoint-backed cookbooks,
+live VLM/LLM services — see [VLM and LLM Endpoints](vlm-llm-endpoints.md).
 
-## Nearest Neighbor Mining
+## Nearest neighbor mining
 
 ```text
 data/nearest-neighbor-mining/
@@ -157,10 +143,10 @@ make run-data-mining-select \
 ```
 
 Minimal parquet schema: identity column + embedding vectors. See
-[Get Started](getting-started.md) Path B for the three-image CLIP
+[Getting Started](getting-started.md) Path B for the three-image CLIP
 staging commands.
 
-## Unique Neighbor Matching
+## Unique neighbor matching
 
 ```text
 data/unique-neighbor-matching/
@@ -175,17 +161,14 @@ make run-data-mining-unique-match \
 ```
 
 For stratified runs, add COCO JSON files or KITTI label directories as described
-in [Data Mining](operations-tao-mining.md).
+in [Operations: Data Mining](operations-tao-mining.md).
 
-## Curator Cookbooks
+## Curator cookbooks
 
 Traffic and warehouse are experiment kits. After you copy the NGC clips above:
 
 - `cookbook/traffic-video-analytics/videos/`
 - `cookbook/warehouse-safety/videos/`
-
-PhysicalAI-AV does not ship MP4s. Download and extract sessions first:
-[`../../cookbook/physical-ai-av/README.md`](../../cookbook/physical-ai-av/README.md).
 
 Run Path A without editing YAML I/O:
 

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared domain types for the CDF integration layer.
+"""Shared domain types for the PAIDF integration layer.
 
 These types are the contract between Dataset Search (online retrieval) and
 Data Mining (offline analytics). Adapters map to/from each engine's native schemas.
@@ -113,15 +113,7 @@ class SearchQuery:
     # CVDS defaults True, but that requires collection storage-secrets tags.
     # Integration default False avoids local failures without S3 wiring.
     generate_asset_url: bool = False
-    annotation_labels: Sequence[str] = field(default_factory=tuple)
-    exclude_annotation_labels: Sequence[str] = field(default_factory=tuple)
-    project_source: Sequence[str] = field(default_factory=tuple)
     clf: Mapping[str, Any] = field(default_factory=dict)
-    caption_query: str | None = None
-    auto_rewrite: bool | None = None
-    caption_extra_queries: Sequence[str] | None = None
-    classifier_label: str | None = None
-    probability_expression: str | None = None
 
 
 @dataclass(frozen=True)

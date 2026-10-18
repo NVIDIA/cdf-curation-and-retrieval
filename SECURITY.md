@@ -40,7 +40,7 @@ portal at https://www.nvidia.com/en-us/security
 
 ## Deployment Responsibilities
 
-This repository ships operator tooling for GPU pipelines, models, and datasets.
+This repository ships operator glue for GPU pipelines, models, and datasets.
 Before deployment:
 
 - Scan Python dependencies, container images, operating-system packages, and

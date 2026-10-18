@@ -15,7 +15,7 @@ Return ONLY valid JSON in this exact top-level shape:
       "event_id": "event_000000",
       "start_time": 0.0,
       "end_time": 1.0,
-      "category": "<one CDF category>",
+      "category": "<one PAIDF category>",
       "sub_category": [],
       "instances": ["id_1"],
       "event_caption": "<compact verification summary>",
@@ -29,7 +29,7 @@ Return ONLY valid JSON in this exact top-level shape:
         "track_association": "<which ids/classes are involved or why ids are absent>",
         "temporal_relation": "<before/during/after order supporting the judgment>",
         "visual_change": "<contact/fall/stop/evasive motion/blockage/fire/none>",
-        "category_choice": "<why this CDF category is more specific than alternatives>",
+        "category_choice": "<why this PAIDF category is more specific than alternatives>",
         "counter_check": "<main ambiguity or refuting evidence, or none>"
       },
       "evidence": ["<track-grounded visible evidence>"],
@@ -40,7 +40,7 @@ Return ONLY valid JSON in this exact top-level shape:
   ]
 }
 
-Use exactly these CDF categories:
+Use exactly these PAIDF categories:
 nominal_traffic_flow
 vehicle_to_vehicle_collision
 motorcycle_or_scooter_crash

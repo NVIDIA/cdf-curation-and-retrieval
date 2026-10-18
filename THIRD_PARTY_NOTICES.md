@@ -1,7 +1,7 @@
 Third Party Notice
 =================
 
-Generated for cdf-curation-and-retrieval dependencies from uv.lock
+Generated for paidf-curation-and-retrieval dependencies from uv.lock
 and pyproject.toml. Source: package metadata via pip-licenses (mixed).
 Does not include third-party code inside pulled Docker images
 (Cosmos Curator and TAO Data Services).

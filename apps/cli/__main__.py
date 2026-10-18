@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Internal ``cdf_curation_and_retrieval`` CLI entry module.
+"""Internal ``paidf_curation_and_retrieval`` CLI entry module.
 
 Make targets invoke this Click app for Curator pipelines, Dataset Search
 handoffs, and TAO Data Services embedding/mining jobs. Operators should use
@@ -46,7 +46,7 @@ from packages.domain.types import CollectionRef, EmbeddingRecord, SearchQuery
 
 @click.group()
 def main() -> None:
-    """CDF integration layer (pulled images + contracts, no engine source)."""
+    """PAIDF integration layer (pulled images + contracts, no engine source)."""
 
 
 main.add_command(dataset_search_group)

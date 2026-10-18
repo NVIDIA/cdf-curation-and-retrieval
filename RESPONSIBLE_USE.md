@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 # Responsible Use of AI Models
 
 This project does **not host or distribute AI model weights**. It orchestrates
-pinned NVIDIA runtime images (Cosmos Curator and TAO Data Services) that
+pinned NVIDIA runtime images — Cosmos Curator and TAO Data Services — that
 download, load, or call external models (for example video embeddings,
 captioning VLMs, CLIP/SigLIP image-text encoders, and optional remote VLM/LLM
 endpoints). Users are solely responsible for obtaining, configuring, and
@@ -17,8 +17,8 @@ inaccurate, incomplete, or otherwise unsuitable for your use case. By
 downloading or invoking a model through this software, you assume the risk of
 any harm arising from model responses or outputs. Use of this software and any
 linked models is subject to the applicable licenses, acceptable-use policies,
-and privacy terms of those models and services. Refer to
-[Cosmos Curator](docs/user-guide/operations-curator.md) and
+and privacy terms of those models and services. See
+[Operations: Curator](docs/user-guide/operations-curator.md) and
 [Installation](docs/user-guide/installation.md) for models referenced by this
 repository.
 
