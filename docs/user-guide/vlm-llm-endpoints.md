@@ -5,27 +5,37 @@ SPDX-License-Identifier: Apache-2.0
 
 # VLM and LLM Endpoints
 
+1. [About Curation and Retrieval](README.md)
+2. [Installation](installation.md)
+3. [Samples and Cookbooks](samples-and-cookbooks.md)
+4. [Get Started](getting-started.md)
+5. [Cosmos Curator](operations-curator.md)
+6. [Data Mining](operations-tao-mining.md)
+7. [Cosmos Dataset Search](operations-cds.md)
+8. [VLM and LLM Endpoints](vlm-llm-endpoints.md)
+9. [Troubleshooting](troubleshooting.md)
+
 Some Curator cookbooks caption, filter, classify, or enhance text through
-**OpenAI-compatible HTTP endpoints** (vLLM, NIM, or a hosted API). Other runs
-use **in-process** models inside the Curator container and do not need these
+OpenAI-compatible HTTP endpoints (vLLM, NIM, or a hosted API). Other runs
+use in-process models inside the Curator container and do not need these
 services.
 
 Model files under `MODELS_DIR` are not enough for endpoint-backed runs. You
 must have live HTTP services reachable from the Curator container.
 
-## When you need endpoints
+## When You Need Endpoints
 
 | Path | Endpoints required? |
 |------|---------------------|
 | Local in-process Curator | No |
-| Full-split cookbooks with remote captioning | Yes — caption/filter/classifier VLM and enhance LLM |
-| Embeddings / mining only (Path B) | No |
+| Full-split cookbooks with remote captioning | Yes: caption, filter, and classifier vision-language model (VLM), and enhance large language model (LLM) |
+| Embeddings or mining only (Path B) | No |
 
 Cosmos Curator does **not** take endpoint URLs from cookbook YAML. Make builds
-`/cosmos_curator/config/cosmos_curator.yaml` from environment variables via
+`/cosmos_curator/config/cosmos_curator.yaml` from environment variables using
 `adapters.cosmos_curator.openai_config_env` before each Curator Docker run.
 
-## Roles and environment variables
+## Roles and Environment Variables
 
 | Role | Curator stage | Base URL env | API key env |
 |------|---------------|--------------|-------------|
@@ -38,30 +48,28 @@ Cosmos Curator does **not** take endpoint URLs from cookbook YAML. Make builds
 Notes:
 
 - Put values in gitignored `local.env` or export them in the shell. Never commit
-  keys. See [Installation](installation.md).
-- If unset, filter/classifier default to the caption/VLM URL.
+  keys. Refer to [Installation](installation.md).
+- If unset, filter and classifier default to the caption VLM URL.
 - Missing API keys default to `EMPTY` (typical for local open endpoints).
-- Optional aliases: `SQA_VLM_BASE_URL` → caption (and filter/classifier when
-  unset); `SQA_LLM_BASE_URL` → enhance.
 - Template comments: `.env.example`.
 
-You set the env vars above (or in gitignored `local.env`) and run
+You set the environment variables above (or in gitignored `local.env`) and run
 `make run-pipeline`. Make generates the Curator OpenAI config mount
 automatically.
 
-## Scenario A — local endpoint containers
+## Scenario A Local Endpoint Containers
 
 Use when you host vLLM (or equivalent) on the same machine. Keep endpoint GPUs
 **separate** from Curator and TAO GPUs.
 
-### Example 4-GPU map
+### Example Four-GPU Map
 
 | Host GPU | Owner | Use |
 |----------|-------|-----|
-| 0 | VLM | Caption / filter / classifier |
+| 0 | VLM | Caption, filter, classifier |
 | 1 | LLM | Text enhancement |
-| 2 | Curator | Split, SAM3, IV2, orchestration |
-| 3 | TAO | Image/text embeddings, TMM NN/UNM |
+| 2 | Curator | Split, Segment Anything Model 3 (SAM3), InternVideo2 (IV2), orchestration |
+| 3 | TAO | Image and text embeddings, nearest neighbors, unique neighbor matching |
 
 Confirm free memory before launch:
 
@@ -69,7 +77,7 @@ Confirm free memory before launch:
 nvidia-smi --query-gpu=index,memory.used,memory.free --format=csv
 ```
 
-### Launch (tested stable VLM profile)
+### Launch a Local VLM
 
 Requires: NGC login for the vLLM image, models present under `MODELS_DIR`
 (for example after `make download-models`), and an approved `HF_TOKEN` when
@@ -109,16 +117,16 @@ docker run -d --name paidf-llm --gpus '"device=1"' --ipc=host \
 Keep `--max-num-seqs 1` on the VLM so long video caption requests stay
 serialized. Endpoint-backed runs are expected to be slower with this setting.
 
-### Health check on the host
+### Health Check on the Host
 
 ```bash
 curl --fail --silent --show-error "http://localhost:8000/v1/models"
 curl --fail --silent --show-error "http://localhost:8002/v1/models"
 ```
 
-### Point Curator at the endpoints
+### Point Curator at the Endpoints
 
-With Make’s default Docker **bridge** network, use `host.docker.internal` and
+With Make's default Docker **bridge** network, use `host.docker.internal` and
 pass the Linux host-gateway mapping:
 
 ```bash
@@ -148,15 +156,15 @@ make run-pipeline \
 ```
 
 If Curator still cannot reach the endpoints, confirm `EXTRA_DOCKER_ARGS` includes
-the host-gateway mapping (see [Failure modes](#failure-modes)).
+the host-gateway mapping. Refer to [Failure Modes](#failure-modes).
 
-### Tear down
+### Tear Down
 
 ```bash
 docker rm -f paidf-vlm paidf-llm
 ```
 
-## Scenario B — hosted endpoints
+## Scenario B Hosted Endpoints
 
 When a platform team provides OpenAI-compatible URLs and model names:
 
@@ -185,23 +193,23 @@ curl --fail --silent --show-error \
 Record URLs and model names in evidence; never record API key values.
 `EXTRA_DOCKER_ARGS` is needed only if the URL uses `host.docker.internal`.
 
-## GPU quoting
+## GPU Quoting
 
-Preserve Docker’s quoted device expression:
+Preserve Docker's quoted device expression:
 
 ```bash
 export GPUS='"device=2"'
 # Wrong: GPUS=device=2   (Docker rejects this form)
 ```
 
-While local VLM/LLM containers occupy GPUs, do not set `GPUS=all` for Curator
+While local VLM and LLM containers occupy GPUs, do not set `GPUS=all` for Curator
 or TAO.
 
-## Failure modes
+## Failure Modes
 
 | Symptom | Likely cause | Action |
 |---------|--------------|--------|
-| Curator cannot reach endpoint | Missing host-gateway / wrong URL | Set `EXTRA_DOCKER_ARGS`; re-check host `/v1/models` |
+| Curator cannot reach endpoint | Missing host-gateway / wrong URL | Set `EXTRA_DOCKER_ARGS`; check host `/v1/models` again |
 | `/v1/models` fails on host | Endpoint not ready or wrong port | `docker logs paidf-vlm` / `paidf-llm`; wait for ready |
 | VLM HTTP 500, `EngineDeadError`, deepstack token errors | Endpoint overload / bad profile | Relaunch VLM with the stable flags above (`--max-num-seqs 1`) |
 | Job appears hung | Serialized VLM queue | Check VLM logs for queue progress before killing |
@@ -211,5 +219,5 @@ More Curator tips: [Troubleshooting](troubleshooting.md).
 
 ## Related
 
-- [Operations: Curator](operations-curator.md)
+- [Cosmos Curator](operations-curator.md)
 - [Samples and Cookbooks](samples-and-cookbooks.md)
