@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Public workflow facade for PAIDF CLI orchestration."""
+"""Public workflow facade for CDF CLI orchestration."""
 
 from apps.workflows.captions import (
     BuildCaptionParquetRequest,
@@ -11,10 +11,13 @@ from apps.workflows.captions import (
     CaptionParquetValidator,
     CaptionReadinessRequest,
     CaptionSearchRequest,
+    ConvertCuratorCaptionsRequest,
+    CuratorCaptionConverter,
     UploadCaptionParquetRequest,
     ValidateCaptionParquetRequest,
     build_caption_parquet_handoff,
     bulk_insert_caption_parquets,
+    convert_curator_captions_handoff,
     run_caption_readiness,
     search_captions,
     upload_caption_parquet_handoff,
@@ -97,6 +100,8 @@ __all__ = [
     "CaptionParquetValidator",
     "CaptionReadinessRequest",
     "CaptionSearchRequest",
+    "ConvertCuratorCaptionsRequest",
+    "CuratorCaptionConverter",
     "CuratorExportConverter",
     "CuratorPipelineRunResult",
     "CuratorPipelineRunner",
@@ -137,6 +142,7 @@ __all__ = [
     "build_image_embedding_input_handoff",
     "bulk_insert_caption_parquets",
     "build_search_query",
+    "convert_curator_captions_handoff",
     "delete_document_handoff",
     "ingest_documents_handoff",
     "ingest_curator_export",

@@ -1,6 +1,10 @@
 # Minimal Dataset Search stack for integration-layer development.
-# Image is PULLED only (make pull-dataset-search) — never built from this repo.
-# Milvus/etcd/minio are upstream dependencies for the Dataset Search API.
+# Images are PULLED only (make pull-dataset-search) — never built from this repo.
+# Milvus/etcd/localstack are upstream dependencies for the Dataset Search API.
+# LocalStack is the S3-compatible store Milvus persists to, matching the CDS
+# 1.2.0 standalone deployment.
+# CDS_API_PUBLIC_URL must be reachable from the operator browser, not a
+# container-network hostname.
 
 services:
   etcd:
@@ -16,32 +20,46 @@ services:
       timeout: 20s
       retries: 3
 
-  minio:
-    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+  localstack:
+    image: localstack/localstack:4.7
     environment:
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-    command: minio server /minio_data
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_ENDPOINT_URL: http://localstack:4566
+      BUCKET_NAME: cosmos-test-bucket
+    volumes:
+      - ./localstack/init:/etc/localstack/init/ready.d:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
+      test: ["CMD-SHELL", "awslocal s3 ls >/dev/null 2>&1 || aws --endpoint-url=http://localhost:4566 s3 ls >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
 
   milvus:
-    image: milvusdb/milvus:v2.4.0
+    image: milvusdb/milvus:v2.4.4
     command: ["milvus", "run", "standalone"]
     security_opt:
       - seccomp:unconfined
     environment:
+      # Milvus names its object-store settings minio.* whatever the backend
+      # is, so these MINIO_ keys configure the LocalStack S3 endpoint. Each
+      # name is the config path with the separators removed (minio.accessKeyID
+      # becomes MINIO_ACCESSKEYID); this spelling is confirmed to reach Milvus,
+      # which logs the resulting endpoint and bucket when it prechecks storage.
+      # CDS sets these in a mounted milvus.yaml instead, so their spelling of
+      # the env names is not a guide here.
       ETCD_ENDPOINTS: etcd:2379
-      MINIO_ADDRESS: minio:9000
-      MINIO_ACCESS_KEY_ID: minioadmin
-      MINIO_SECRET_ACCESS_KEY: minioadmin
+      MINIO_ADDRESS: localstack:4566
+      MINIO_ACCESSKEYID: test
+      MINIO_SECRETACCESSKEY: test
+      MINIO_BUCKETNAME: cosmos-test-bucket
+      MINIO_USESSL: "false"
+      MINIO_REGION: us-east-1
     depends_on:
       etcd:
         condition: service_healthy
-      minio:
+      localstack:
         condition: service_healthy
     ports:
       - "19530:19530"

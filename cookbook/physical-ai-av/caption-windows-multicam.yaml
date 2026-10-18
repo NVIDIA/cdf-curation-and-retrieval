@@ -1,0 +1,80 @@
+# =============================================================================
+# PhysicalAI-AV -- Experiment A: dense window captions + CE1
+# =============================================================================
+# Keep each ~20 s session as one clip (no 10 s re-chunk). Caption the
+# primary camera in 60-frame windows. At 30 fps that is 2 s per window,
+# about 10 windows on a 600-frame clip. Curator AV prompt from
+# av_caption_prompt.txt (stop-capped).
+#
+# Input layout (Curator --multi-cam):
+#   DATA_DIR/videos/<clip-uuid>/camera_front_wide_120fov.mp4
+#   ... plus the other session cameras
+#
+# Caption / enhance / embed use the primary camera only.
+# See configs/split.yaml for the full reference.
+# =============================================================================
+
+pipeline: "split"
+
+# -- I/O (under DATA_DIR, mounted at /data) --
+input_video_path: /data/videos
+output_clip_path: /data/output/caption-windows-multicam
+model_weights_path: "/config/models"
+
+# -- One 20 s clip per session (do not re-chunk into 10 s clips) --
+multi_cam: true
+primary_camera_keyword: "front_wide"
+splitting_algorithm: "fixed-stride"
+fixed_stride_split_duration: 20
+fixed_stride_min_clip_length_s: 2.0
+limit: 100
+limit_clips: 1
+
+# -- Dense window captions: 60 frames at 30 fps -> ~10 windows / 20 s --
+generate_captions: true
+captioning_algorithm: "qwen3_vl_30b_fp8"
+qwen_num_gpus_per_worker: 1
+captioning_prompt_variant: "av"
+captioning_window_size: 60
+captioning_remainder_threshold: 30
+captioning_sampling_fps: 2.0
+captioning_max_output_tokens: 4096
+vllm_sampling_temperature: 0.1
+vllm_sampling_top_p: 0.001
+vllm_sampling_repetition_penalty: 1.05
+
+# Keep in sync with av_caption_prompt.txt. Replaces captioning_prompt_variant.
+captioning_prompt_text: |
+  The video depicts the view from a camera mounted on a car as it is driving.
+  Pay special attention to the motion of the cars, including the primary car
+  whose point-of-view we observe in the video. Also note important factors
+  that would relate to driving safety like the relative positions of pedestrians,
+  lane markers, road signs, traffic signals, and any aggressive driving behavior
+  of other vehicles. Also pay attention to interesting landmarks and describe
+  them in detail.
+
+  Write one paragraph of at most 8 sentences. Then stop. Do not continue with
+  extra detail, lists, or a second pass over the same scene.
+
+enhance_captions: false
+enhance_captions_prompt_variant: "av"
+
+# -- Search-comparison recipe: captions + CE1 only --
+motion_filter: "disable"
+aesthetic_threshold: null
+vlm_filter: "disable"
+artificial_text_filter: false
+super_resolution: false
+video_classifier: false
+sam3: false
+event_captioning: false
+
+# -- Embedding (Path D handoff; primary camera only) --
+generate_embeddings: true
+embedding_algorithm: "cosmos-embed1-224p"
+embedding_gpus_per_worker: 1
+embedding_batch_size: 4
+
+upload_clips: true
+write_all_caption_json: true
+perf_profile: true

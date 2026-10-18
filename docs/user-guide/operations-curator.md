@@ -3,20 +3,34 @@ SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All 
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Operations: Cosmos Curator
+# Cosmos Curator
+
+1. [About Curation and Retrieval](README.md)
+2. [Installation](installation.md)
+3. [Samples and Cookbooks](samples-and-cookbooks.md)
+4. [Get Started](getting-started.md)
+5. [Cosmos Curator](operations-curator.md)
+6. [Data Mining](operations-tao-mining.md)
+7. [Cosmos Dataset Search](operations-cds.md)
+8. [VLM and LLM Endpoints](vlm-llm-endpoints.md)
+9. [Troubleshooting](troubleshooting.md)
 
 Run video and image curation with Make. Stage sample clips first:
 [Samples and Cookbooks](samples-and-cookbooks.md). Curator pipeline diagram:
 [Architecture](../developer/architecture.md).
 
-## Before you run
+![Smart Data Curation Cosmos Curator](../assets/smart-data-curation-cosmos-curator.png)
+
+## Before You Run
 
 1. Complete [Installation](installation.md) Path A checks.
-2. Put weights in `MODELS_DIR` (`make download-models`). See [Models](#models).
+2. Put weights in `MODELS_DIR` (`make download-models`). Refer to [Models](#models).
 3. Ensure `FFMPEG_DIR` passes `make check-setup`.
 4. Copy NGC clips into `cookbook/*/videos/` before the first-run YAMLs.
+   PhysicalAI-AV is download-first:
+   [`../../cookbook/physical-ai-av/README.md`](../../cookbook/physical-ai-av/README.md).
 
-## Video pipeline (split → dedup → shard)
+## Video Pipeline
 
 ```bash
 MODELS=/path/to/models
@@ -45,10 +59,13 @@ make run-pipeline \
 
 | Directory | Focus |
 |-----------|--------|
-| `cookbook/traffic-video-analytics/` | Two VSS traffic clips; `split-minimal.yaml` first-run (`limit: 1`) |
+| `cookbook/traffic-video-analytics/` | Two VSS traffic clips; `split-minimal.yaml` first-run (both clips, CE1 + captions) |
 | `cookbook/warehouse-safety/` | Four VSS warehouse clips; `split-minimal.yaml` first-run |
+| `cookbook/physical-ai-av/` | Gated PhysicalAI-AV; download/extract, then minimal CE1 or full single/multi-cam YAMLs |
 
-## Image annotate
+See [Samples and Cookbooks](samples-and-cookbooks.md).
+
+## Image Annotate
 
 ```bash
 make run_image_pipeline \
@@ -57,7 +74,7 @@ make run_image_pipeline \
   DATA_DIR=/path/to/images
 ```
 
-## Make variables
+## Make Variables
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
@@ -75,7 +92,7 @@ Reference templates: `configs/split.yaml`, `configs/dedup.yaml`,
 `configs/shard.yaml`, `configs/image.yaml`. Cookbook YAML uses native
 cosmos-curator `snake_case` keys. Omitted keys receive parser defaults.
 
-## Embedding producers for TMM
+## Embedding Producers for TAO Mining
 
 | Producer | How you get it | `TDM_EMBEDDING_BACKEND` |
 |----------|----------------|-------------------------|
@@ -84,11 +101,12 @@ cosmos-curator `snake_case` keys. Omitted keys receive parser defaults.
 | Image annotate | Curator image pipeline | follow image contract |
 
 After Curator writes embedding parquets, stage S/B and continue with
-[Operations: Data Mining](operations-tao-mining.md).
+[Data Mining](operations-tao-mining.md).
 
-## Remote caption endpoints
+## Remote Caption Endpoints
 
-Full-split cookbooks need live OpenAI-compatible VLM/LLM HTTP services.
+Full-split cookbooks need live OpenAI-compatible vision-language model (VLM)
+and large language model (LLM) HTTP services.
 [VLM and LLM Endpoints](vlm-llm-endpoints.md). Never put API keys on Make argv.
 
 ## Models
@@ -99,7 +117,7 @@ YAML. Put weights in `MODELS_DIR`. Allowed strings also appear as comments on
 
 Remote OpenAI-compatible or Gemini APIs do not need local VLM weights.
 
-### Default download
+### Default Download
 
 `make download-models` pulls the `MODEL_LIST` default from the Makefile
 (~90GB+). Override with `MODEL_LIST=...` if you need a subset.
@@ -111,39 +129,38 @@ Remote OpenAI-compatible or Gemini APIs do not need local VLM weights.
 | `qwen3_vl_30b_fp8` | Same family, FP8 (traffic cookbook) |
 | `qwen2.5_lm` | Caption enhance (`qwen_lm`) |
 | `qwen2.5_vl` | Qwen2-VL-7B (`captioning_algorithm: qwen`) |
-| `internvideo2_mm` | InternVideo2 video weights (also download `bert`) |
+| `internvideo2_mm` | InternVideo2 video weights |
+| `bert` | `google-bert/bert-large-uncased` tokenizer. InternVideo2 does not vendor it; init fails without this sidecar |
 | `clip_vit` | Image CLIP embeddings / aesthetic |
 | `aesthetic_scorer` | Aesthetic filter |
 | `cosmos_embed1_224p` | Cosmos-Embed1 224p (traffic cookbook) |
-| `sam3` | SAM3 tracking (`PIXI_ENV=sam3`) |
+| `sam3` | Segment Anything Model 3 (SAM3) tracking (`PIXI_ENV=sam3`) |
 
 SeedVR2 is **not** in `MODEL_LIST`. Run `make download-seedvr2` when a cookbook
 sets `super_resolution: true`. SAM3 and some HF weights need an `HF_TOKEN`.
 
-### Extra tokens (opt-in)
+### Extra Tokens
 
 Default `MODEL_LIST` does not include these. Pass them when the YAML enables
 the matching feature:
 
 ```bash
 make download-models MODELS_DIR=/path/to/models \
-  MODEL_LIST=bert,paddle_ocr_det,paddle_ocr_rec
+  MODEL_LIST=paddle_ocr_det,paddle_ocr_rec
 make download-models MODELS_DIR=/path/to/models MODEL_LIST=t5_xxl
 ```
 
 | `MODEL_LIST` token | Required when | Notes |
 |--------------------|---------------|-------|
-| `bert` | `embedding_algorithm: internvideo2` | BERT sidecar. Needed for warehouse Path A. |
 | `paddle_ocr_det`, `paddle_ocr_rec` | `artificial_text_filter: enable` | One-process prefetch. Product OCR is off. |
-| `t5_xxl` | `pipeline: shard` | Reduced T5 encoder. Confirm `pytorch_model.bin.reduced`. |
+| `t5_xxl` | `pipeline: shard` | Reduced `google-t5/t5-11b` encoder. Confirm `pytorch_model.bin.reduced`. |
 
-`internvideo2_mm` does not vendor BERT (`google-bert/bert-large-uncased`).
-Paddle may still fetch an angle classifier at runtime. `t5_xxl` is the
-reduced `google-t5/t5-11b` encoder. If the T5 reduce step fails with
-missing `torch`, rerun it in the Curator `default` pixi environment
-(`model-download` may lack `torch`).
+Paddle might still fetch an angle classifier at runtime. `t5_xxl` weight
+reduction imports `torch`. The `model-download` pixi env does not ship it, so
+`make download-models` runs that token in the Curator `default` env and
+leaves every other token on `model-download`.
 
-### Captioning (VLM)
+### Captioning
 
 YAML key: `captioning_algorithm`. The same family also drives video classifier,
 VLM filter, and event captions unless you point those stages at an endpoint.
@@ -165,7 +182,7 @@ VLM filter, and event captions unless you point those stages at an endpoint.
 
 Traffic and warehouse cookbooks use `qwen3_vl_30b_fp8` on the full split.
 
-### Caption enhance (LLM)
+### Caption Enhance
 
 YAML key: `enhance_captions_lm_variant` (video only, with
 `enhance_captions: true`).
@@ -193,7 +210,7 @@ YAML key: `embedding_algorithm`. Mine with a matching
 Cookbook defaults: traffic `cosmos-embed1-224p`; warehouse `internvideo2`
 (download `bert` with `internvideo2_mm`).
 
-### Split, track, quality
+### Split, Track, and Quality
 
 | Feature | YAML | Model |
 |---------|------|-------|
@@ -209,16 +226,16 @@ Cookbook defaults: traffic `cosmos-embed1-224p`; warehouse `internvideo2`
 Event captions (`event_captioning: true`) require SAM3. Backend:
 `event_caption_backend: qwen` or `gemini`.
 
-### How to select weights
+### How to Select Weights
 
 1. Pick algorithms in the cookbook YAML.
 2. Confirm tokens exist under `MODELS_DIR` (`make download-models`, extra
-   tokens from [Extra tokens (opt-in)](#extra-tokens-opt-in), plus
+   tokens from [Extra Tokens](#extra-tokens), plus
    `make download-seedvr2` if you enable SR).
 3. For `openai` / `gemini`, export `COSMOS_CURATOR_OPENAI_*` (or Gemini keys)
    instead of expecting those VLMs in `MODELS_DIR`.
 
-## Interactive shell
+## Interactive Shell
 
 ```bash
 make shell MODELS_DIR=/path/to/models DATA_DIR=/path/to/data

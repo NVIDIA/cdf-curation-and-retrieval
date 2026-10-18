@@ -24,5 +24,5 @@ Harness-specific skill directories are symlinks to that tree:
 | Claude Code | `CLAUDE.md` | `.claude/skills` |
 | Cursor / other agents | `AGENTS.md` | `.agents/skills` |
 
-When operating Cosmos Curator or PAIDF Data Mining in this repo, load
-`paidf-curation-and-retrieval` from those skill paths.
+When operating Cosmos Curator or CDF Data Mining in this repo, load
+`cdf-curation-and-retrieval` from those skill paths.

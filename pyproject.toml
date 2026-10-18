@@ -1,15 +1,15 @@
 [project]
-name = "paidf-curation-and-retrieval"
-version = "1.1.0"
-description = "Physical AI Data Factory — Curation and Retrieval (glue over Curator, Dataset Search, and Data Mining images)"
+name = "cdf-curation-and-retrieval"
+version = "1.2.0"
+description = "Cosmos Data Factory — Curation and Retrieval (glue over Curator, Dataset Search, and Data Mining images)"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 authors = [
     { name = "NVIDIA" }
 ]
 keywords = [
-    "paidf",
-    "paidf-curation-and-retrieval",
+    "cdf",
+    "cdf-curation-and-retrieval",
     "data-curation",
     "dataset-search",
     "cvds",
@@ -33,7 +33,7 @@ classifiers = [
 # Curator / Dataset Search / Data Mining engines ship their own deps inside
 # pulled Docker images — do not redeclare engine-only packages here.
 dependencies = [
-    "click>=8.1.8,<9", # internal Make glue helpers
+    "click>=8.3.3,<9", # internal Make glue helpers (CVE-2026-7246)
     "numpy>=1.26.4,<2", # DivKNN / clustering / analytics vectors
     "pandas>=2.2.3,<3", # parquet I/O and uniqueness frames
     "pyarrow>=18.1.0,<20", # Curator export → Dataset Search parquet
@@ -79,7 +79,7 @@ all = [
 
 [project.scripts]
 # Internal helper for Make targets — not the operator-facing UX.
-paidf_curation_and_retrieval = "apps.cli.__main__:main"
+cdf_curation_and_retrieval = "apps.cli.__main__:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -96,7 +96,7 @@ managed = true
 constraint-dependencies = [
     "pillow>=12.2.0",  # CVE-2026-42310 / PDF hang family; scan listed 12.1.1
     "pymdown-extensions>=11.0.1",  # CVE-2026-67422 (also covers CVE-2026-46338)
-    "urllib3>=2.7.0",  # CVE-2026-44431, CVE-2026-9375, CVE-2026-44432
+    "urllib3>=2.8.0",  # CVE-2026-44431, CVE-2026-9375, CVE-2026-44432, BDSA-2026-35861, BDSA-2026-35864
     "pygments>=2.20.0",  # CVE-2026-4539 (2.19.2 flagged; bump to latest)
 ]
 
@@ -156,7 +156,7 @@ exclude = [
     "logs/",
     "_archive/",
     "build/",
-    # Local upstream CDS checkout is gitignored and image-owned, not PAIDF glue.
+    # Local upstream CDS checkout is gitignored and image-owned, not CDF glue.
     "cds/",
     "^\\.external/cosmos-curator/",
     "^runs/",
@@ -222,7 +222,7 @@ dev = [
 # =============================================================================
 # NOTES ON SYSTEM / PRODUCT DEPENDENCIES (NOT PIP PACKAGES)
 # =============================================================================
-# This package is the PAIDF integration layer only. Product containers are
+# This package is the CDF integration layer only. Product containers are
 # pulled images and are NOT Python deps of this repo:
 #
 # Image pins: Makefile (COSMOS_CURATOR_*, DATASET_SEARCH_*, DATA_MINING_*)

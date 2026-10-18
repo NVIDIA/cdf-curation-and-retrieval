@@ -17,6 +17,10 @@ from typing import Any, NoReturn
 
 import click
 
+from adapters.cosmos_curator.caption_export import (
+    CuratorCaptionExportError,
+    convert_curator_captions,
+)
 from adapters.data_mining.image_embeddings import (
     ImageEmbeddingParquetError,
     build_image_embedding_input,
@@ -61,6 +65,7 @@ from apps.workflows import (
     BulkInsertCaptionParquetsRequest,
     CaptionReadinessRequest,
     CaptionSearchRequest,
+    ConvertCuratorCaptionsRequest,
     PrepareCdsCe1ForTdmRequest,
     RunImageEmbeddingsRequest,
     RunTextEmbeddingsRequest,
@@ -73,6 +78,7 @@ from apps.workflows import (
     build_caption_parquet_handoff,
     build_image_embedding_input_handoff,
     bulk_insert_caption_parquets,
+    convert_curator_captions_handoff,
     prepare_cds_ce1_for_tdm_handoff,
     run_caption_readiness,
     run_image_embeddings,
@@ -114,7 +120,7 @@ def _indexed_ids(indexed_id_file: str | None) -> set[str] | None:
 
 @click.group("integration")
 def integration_group() -> None:
-    """Finite artifact/API handoffs for the external PAIDF orchestration team."""
+    """Finite artifact/API handoffs for the external CDF orchestration team."""
 
 
 @integration_group.group("image-embeddings")
@@ -501,6 +507,50 @@ def caption_search(
     _echo_json(result)
 
 
+@captions_group.command("from-curator")
+@click.option(
+    "--curator-dir",
+    required=True,
+    type=click.Path(exists=True, file_okay=False),
+    help="Curator output root containing metas/v0/",
+)
+@click.option("--output-parquet", required=True, type=click.Path(dir_okay=False))
+@click.option("--indexed-id-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option(
+    "--caption-key",
+    default=None,
+    help="Window JSON key to use (default: enhanced caption, else first *_caption)",
+)
+def caption_from_curator(
+    curator_dir: str,
+    output_parquet: str,
+    indexed_id_file: str | None,
+    caption_key: str | None,
+) -> None:
+    """Convert Curator clip metas into CDS `clip_id`/`summary` parquet."""
+    try:
+        result = convert_curator_captions_handoff(
+            ConvertCuratorCaptionsRequest(
+                curator_dir=curator_dir,
+                output_parquet=output_parquet,
+                indexed_clip_ids=_indexed_ids(indexed_id_file),
+                caption_key=caption_key or None,
+            ),
+            convert_captions=convert_curator_captions,
+            build_caption=build_caption_parquet,
+            validate_caption=validate_caption_parquet,
+        )
+    except (
+        CuratorCaptionExportError,
+        CaptionParquetError,
+        FileNotFoundError,
+        OSError,
+        ValueError,
+    ) as exc:
+        raise click.ClickException(str(exc)) from exc
+    _echo_json(result)
+
+
 @captions_group.command("build")
 @click.option("--input-json", required=True, type=click.Path(exists=True, dir_okay=False))
 @click.option("--output-parquet", required=True, type=click.Path(dir_okay=False))
@@ -517,7 +567,7 @@ def caption_build(input_json: str, output_parquet: str, indexed_id_file: str | N
             build_caption=build_caption_parquet,
             validate_caption=validate_caption_parquet,
         )
-    except (CaptionParquetError, FileNotFoundError, ValueError) as exc:
+    except (CaptionParquetError, FileNotFoundError, OSError, ValueError) as exc:
         raise click.ClickException(str(exc)) from exc
     _echo_json(result)
 
@@ -535,7 +585,7 @@ def caption_validate(parquet_path: str, indexed_id_file: str | None) -> None:
             ),
             validate_caption=validate_caption_parquet,
         )
-    except (CaptionParquetError, FileNotFoundError) as exc:
+    except (CaptionParquetError, FileNotFoundError, OSError) as exc:
         raise click.ClickException(str(exc)) from exc
     _echo_json(result)
 
@@ -565,7 +615,7 @@ def caption_upload(
             validate_caption=validate_caption_parquet,
             client_factory=lambda: build_caption_adapter(cds_url),
         )
-    except (CaptionCapabilityError, CaptionParquetError, FileNotFoundError) as exc:
+    except (CaptionCapabilityError, CaptionParquetError, FileNotFoundError, OSError) as exc:
         raise click.ClickException(str(exc)) from exc
     _echo_json(result)
 
