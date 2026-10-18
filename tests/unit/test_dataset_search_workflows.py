@@ -58,6 +58,47 @@ def test_build_search_query_rejects_non_object_json_filters() -> None:
         build_search_query(SearchQueryInput(filters_json='["camera_id"]'))
 
 
+def test_build_search_query_accepts_ea_search_fields() -> None:
+    query = build_search_query(
+        SearchQueryInput(
+            caption_query="forklift near loading dock",
+            annotation_labels=("approved",),
+            exclude_annotation_labels=("reject",),
+            project_source=("project-1",),
+            clf_json='{"coef": [1.0], "intercept": 0.2}',
+            auto_rewrite=True,
+            caption_extra_queries=("lift truck",),
+            classifier_label="safety",
+            probability_expression="p > 0.7",
+        )
+    )
+
+    assert query.caption_query == "forklift near loading dock"
+    assert query.annotation_labels == ("approved",)
+    assert query.exclude_annotation_labels == ("reject",)
+    assert query.project_source == ("project-1",)
+    assert query.clf == {"coef": [1.0], "intercept": 0.2}
+    assert query.auto_rewrite is True
+    assert query.caption_extra_queries == ("lift truck",)
+    assert query.classifier_label == "safety"
+    assert query.probability_expression == "p > 0.7"
+
+
+def test_build_search_query_rejects_non_object_classifier_json() -> None:
+    with pytest.raises(ValueError, match="clf-json"):
+        build_search_query(SearchQueryInput(clf_json="[1, 2]"))
+
+
+def test_build_search_query_names_the_option_on_malformed_clf_json() -> None:
+    with pytest.raises(ValueError, match="--clf-json must be valid JSON"):
+        build_search_query(SearchQueryInput(clf_json="{not json"))
+
+
+def test_build_search_query_names_the_option_on_malformed_embedding() -> None:
+    with pytest.raises(ValueError, match="--embedding must be valid JSON"):
+        build_search_query(SearchQueryInput(embedding="[0.1, "))
+
+
 def test_search_collection_handoff_maps_hits_to_cli_payload() -> None:
     client = MagicMock()
     client.search.return_value = [

@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 # Developer Docs
 
 Documentation for people **changing** this repository: architecture,
-glue layout, and contributor setup.
+code layout, and contributor setup.
 
 To **run** Curator or Data Mining as a customer, use the
 [User Guide](../user-guide/README.md). Complete that product path once, then
@@ -14,8 +14,8 @@ return here.
 
 ## Architecture
 
-- [Architecture](architecture.md) — Make, engines, S/B mining, data flow
-- [Clean architecture notes](../architecture/paidf-clean-architecture.md)
+- [Architecture](architecture.md): Make, engines, S/B mining, data flow
+- [Clean architecture notes](../architecture/cdf-clean-architecture.md)
 
 ## Contributor setup
 
@@ -31,4 +31,4 @@ uv run pytest tests/unit -q
 
 - [User Guide](../user-guide/README.md)
 - [`CLAUDE.md`](../../CLAUDE.md)
-- [Skills](../../skills/paidf-curation-and-retrieval/)
+- [Skills](../../skills/cdf-curation-and-retrieval/)
