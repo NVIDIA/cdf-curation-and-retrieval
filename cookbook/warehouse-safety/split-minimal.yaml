@@ -7,6 +7,7 @@
 #
 # Input: DATA_DIR/videos. Shipped first-run clip is SDG-Warehouse-01.mp4
 # (~25 s). limit: 1 processes the first file in that directory (01 sorts first).
+# Do not mix this recipe with SQA execution.
 #
 # All omitted keys fall back to parser defaults.
 # See configs/split.yaml for the full reference.

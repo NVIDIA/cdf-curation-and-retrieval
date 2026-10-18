@@ -12,12 +12,12 @@ as input media.
 
 | File | Duration | Format | Source clip |
 |------|----------|--------|-------------|
-| `videos/SDG-Intersection-01.mp4` | ~89 s | H.264 1920×1080 30 fps | `sample-sim-jaywalking.mp4`; Path A |
-| `videos/SDG-Intersection-02.mp4` | ~130 s | H.264 1920×1080 30 fps | `sample-sim-traffic.mp4`; Path A |
+| `videos/SDG-Intersection-01.mp4` | ~89 s | H.264 1920×1080 30 fps | `sample-sim-jaywalking.mp4`; Path A (`limit: 1`) |
+| `videos/SDG-Intersection-02.mp4` | ~130 s | H.264 1920×1080 30 fps | `sample-sim-traffic.mp4` |
 
 `split.yaml` and `split-minimal.yaml` both read `videos/` (`/data/videos`).
-`split-minimal.yaml` processes both files (no `limit`) with Qwen3-VL captions
-and Cosmos-Embed1. Classifier, SAM3, and caption enhance stay off.
+`split-minimal.yaml` sets `limit: 1`, so it processes `SDG-Intersection-01.mp4`
+first.
 
 ## Run
 
@@ -25,7 +25,7 @@ and Cosmos-Embed1. Classifier, SAM3, and caption enhance stay off.
 DATA=$PWD/cookbook/traffic-video-analytics
 MODELS=/path/to/models
 
-# Split + Qwen3-VL captions + Cosmos-Embed1 (both intersection clips)
+# Split + Cosmos-Embed1 only (limit: 1 → SDG-Intersection-01.mp4)
 make run-pipeline \
   CONFIG_FILE=cookbook/traffic-video-analytics/split-minimal.yaml \
   DATA_DIR=$DATA \
@@ -43,14 +43,9 @@ make run-pipeline CONFIG_FILE=cookbook/traffic-video-analytics/shard.yaml DATA_D
 ```
 
 YAML I/O is `/data/...`. Pass `DATA_DIR` as this directory. Full `split.yaml`
-needs VLM/LLM endpoints or in-process 30B weights. Refer to
+needs VLM/LLM endpoints or in-process 30B weights — see
 [VLM and LLM Endpoints](../../docs/user-guide/vlm-llm-endpoints.md).
 
 To use other MP4s, replace files under `videos/` (H.264). Do not put a README
 in `videos/`; Curator reads every file there. Delete `output/split*` before a
-clean re-run so Curator does not skip videos that already have
-`processed_videos/*.json`.
-
-Path D (index CE1 in Cosmos Dataset Search and search by text):
-[Cosmos Dataset Search](../../docs/user-guide/operations-cds.md).
-`CURATOR_DIR` is this cookbook's `output/split-minimal` directory.
+clean re-run.

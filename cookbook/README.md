@@ -1,19 +1,19 @@
-# Scenario Recipes
+# Cookbook — Scenario recipes
 
-Part of Cosmos Data Factory (CDF) Curation and Retrieval
-(`cdf-curation-and-retrieval`).
+Part of **Physical AI Data Factory — Curation and Retrieval**
+(`paidf-curation-and-retrieval`).
 
 Cookbooks ship **engine-native configs** (`*.yaml`, prompts). Release-facing
 recipes cover Cosmos Curator and Data Mining.
 
 Human overview + diagram: repo [`README.md`](../README.md). There is no shared
-scheduler or cross-step state in this repository; the `apps.workflows`
-package owns behavior-preserving handoff logic used by Make / `cdf`. Validate
+scheduler or cross-step state in this repository; the internal `apps.workflows`
+package owns behavior-preserving handoff logic used by Make / `paidf`. Validate
 with `uv run pytest tests/unit`.
 
-## How to Run
+## How to run
 
-### Cosmos Curator Video
+### Cosmos Curator (video)
 
 Traffic is the experiment kit with shipped VSS sample clips. YAML I/O is
 `/data/...`. Pass `DATA_DIR` as the cookbook directory (or a work dir with a
@@ -29,10 +29,8 @@ make run-pipeline CONFIG_FILE=cookbook/traffic-video-analytics/dedup.yaml MODELS
 make run-pipeline CONFIG_FILE=cookbook/traffic-video-analytics/shard.yaml MODELS_DIR=$MODELS DATA_DIR=$DATA
 ```
 
-`split-minimal.yaml` is split + Cosmos-Embed1 only (Path A / Path D). Full
-`split.yaml` needs VLM endpoints. Warehouse `split-minimal.yaml` still uses
-InternVideo2 (Path C / TMM). Details:
-[`cookbook/traffic-video-analytics/README.md`](traffic-video-analytics/README.md).
+`split-minimal.yaml` is split + InternVideo2 only. Full `split.yaml` needs VLM
+endpoints. Details: [`cookbook/traffic-video-analytics/README.md`](traffic-video-analytics/README.md).
 
 ### Data Mining
 
@@ -63,7 +61,7 @@ data/nearest-neighbor-mining/   (or data/unique-neighbor-matching/)
 Customer guide: [`docs/user-guide/`](../docs/user-guide/).
 Samples: [`docs/user-guide/samples-and-cookbooks.md`](../docs/user-guide/samples-and-cookbooks.md).
 
-## Domain Curator Cookbooks
+## Domain Curator cookbooks
 
 Each domain subdirectory contains **minimal override** YAML configs for the
 three cosmos-curator video pipelines (`split`, `dedup`, `shard`).
@@ -75,11 +73,9 @@ listed. Omitted keys receive their parser defaults automatically via
 ### Usage
 
 1. Traffic and warehouse: run against the shipped clips (`DATA_DIR` = the
-   cookbook directory). PhysicalAI-AV: download and extract sessions first
-   (`python -m adapters.physical_ai_av.prepare_sessions`); see
-   [`physical-ai-av/README.md`](physical-ai-av/README.md). To try other MP4s,
-   copy them into a work directory with `videos/` and pass that as `DATA_DIR`.
-   Keep `CONFIG_FILE` pointing at the cookbook YAML.
+   cookbook directory). To try other MP4s, copy them into a work directory with
+   `videos/` and pass that as `DATA_DIR`. Keep
+   `CONFIG_FILE` pointing at the cookbook YAML.
 
 2. For local paths, pass `DATA_DIR=<dir>` so Make bind-mounts the host
    directory at `/data`.
@@ -99,20 +95,18 @@ listed. Omitted keys receive their parser defaults automatically via
    Warehouse: same commands with `cookbook/warehouse-safety` and
    `DATA=$PWD/cookbook/warehouse-safety`.
 
-## Available Scenarios
+## Available scenarios
 
 | Directory                   | Kind   | Description |
 | --------------------------- | ------ | ----------- |
-| `traffic-video-analytics`   | Recipe | Experiment kit: two VSS traffic clips; `split-minimal.yaml` (split + CE1 + captions) and full `split.yaml` (captions, classifier, SAM3, CE1), plus dedup and shard |
+| `traffic-video-analytics`   | Recipe | Experiment kit: two VSS traffic clips; `split-minimal.yaml` (split + IV2) and full `split.yaml` (captions, classifier, SAM3, IV2), plus dedup and shard |
 | `warehouse-safety`          | Recipe | Experiment kit: four VSS warehouse clips; `split-minimal.yaml` and full `split.yaml` (captions, classifier, SAM3, IV2), plus dedup and shard |
-| `physical-ai-av`            | Recipe | Gated PhysicalAI-AV: download/extract, then minimal CE1, full SAM3 event split, or caption A/B YAMLs |
 | `nearest-neighbor-mining`   | Recipe | Nearest neighbors via `tmm.yaml` |
 | `unique-neighbor-matching`  | Recipe | Unique neighbor matching via `unm.yaml` |
 
 Domain Curator recipes include:
 
-- `split-minimal.yaml` — split + embeddings, minimal enrichment (Path A
-  first-run); embedding backend and captioning vary per scenario as listed above
+- `split-minimal.yaml` — split + InternVideo2 only (Path A first-run)
 - `split.yaml` — split + caption + embed + classify/filter (consumed by the pipeline)
 - `dedup.yaml` — semantic deduplication on split output
 - `shard.yaml` — WebDataset sharding of deduplicated clips

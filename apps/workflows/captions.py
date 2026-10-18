@@ -47,19 +47,6 @@ class CaptionCommandClient(Protocol):
         """Submit caption parquet object-store references."""
 
 
-class CuratorCaptionConverter(Protocol):
-    """Port for converting Curator clip metas into caption rows."""
-
-    def __call__(
-        self,
-        curator_dir: str | Path,
-        *,
-        caption_key: str | None = None,
-        indexed_clip_ids: set[str] | None = None,
-    ) -> Sequence[dict[str, Any]]:
-        """Return CDS ``clip_id``/``summary`` rows."""
-
-
 class CaptionParquetBuilder(Protocol):
     """Port for building a caption parquet artifact."""
 
@@ -100,16 +87,6 @@ class CaptionSearchRequest:
     query: str
     limit: int
     data_sources: Sequence[str] | None = None
-
-
-@dataclass(frozen=True)
-class ConvertCuratorCaptionsRequest:
-    """Inputs for converting Curator metas into CDS caption parquet."""
-
-    curator_dir: str
-    output_parquet: str
-    indexed_clip_ids: set[str] | None = None
-    caption_key: str | None = None
 
 
 @dataclass(frozen=True)
@@ -180,30 +157,6 @@ def search_captions(
         data_sources=request.data_sources,
     )
     return {"status": "ok", **result}
-
-
-def convert_curator_captions_handoff(
-    request: ConvertCuratorCaptionsRequest,
-    *,
-    convert_captions: CuratorCaptionConverter,
-    build_caption: CaptionParquetBuilder,
-    validate_caption: CaptionParquetValidator,
-) -> dict[str, Any]:
-    """Convert Curator metas, then build and validate caption parquet."""
-    rows = list(
-        convert_captions(
-            request.curator_dir,
-            caption_key=request.caption_key,
-            indexed_clip_ids=request.indexed_clip_ids,
-        )
-    )
-    output = build_caption(
-        rows,
-        request.output_parquet,
-        indexed_clip_ids=request.indexed_clip_ids,
-    )
-    summary = validate_caption(output, indexed_clip_ids=request.indexed_clip_ids)
-    return {"status": "built", "source": "curator_metas", "rows_converted": len(rows), **summary}
 
 
 def build_caption_parquet_handoff(

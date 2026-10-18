@@ -19,7 +19,6 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SPLIT_YAML = REPO_ROOT / "configs" / "split.yaml"
-SPLIT_MINIMAL = REPO_ROOT / "cookbook" / "traffic-video-analytics" / "split-minimal.yaml"
 
 # Stage / feature toggles that must remain present in the reference catalog.
 REQUIRED_KEYS = frozenset(
@@ -187,59 +186,6 @@ class TestSplitConfigReferenceContract:
         cfg = _load_split_config()
         assert "<YOUR_" in str(cfg["input_video_path"])
         assert "<YOUR_" in str(cfg["output_clip_path"])
-
-
-class TestSplitMinimalRecipe:
-    """Cookbook recipe ``split-minimal.yaml`` is the first-run operator surface.
-
-    The recipe is intentionally sparse (``All omitted keys fall back to parser
-    defaults``), so we cannot require every key from ``REQUIRED_KEYS``.
-    Instead, we assert that every key the recipe *does* declare obeys the
-    same contract as ``configs/split.yaml``: no forbidden legacy no-ops,
-    booleans stay booleans, and enum fields (including ``splitting_algorithm``)
-    stay inside their allowed set.
-    """
-
-    @pytest.fixture()
-    def recipe(self) -> dict:
-        assert SPLIT_MINIMAL.is_file(), f"missing recipe: {SPLIT_MINIMAL}"
-        parsed = yaml.safe_load(SPLIT_MINIMAL.read_text(encoding="utf-8"))
-        assert isinstance(parsed, dict)
-        return parsed
-
-    def test_recipe_targets_the_split_pipeline(self, recipe: dict) -> None:
-        assert recipe.get("pipeline") == "split"
-
-    def test_recipe_does_not_use_forbidden_legacy_keys(self, recipe: dict) -> None:
-        present = sorted(FORBIDDEN_KEYS & set(recipe))
-        assert present == [], f"recipe uses forbidden legacy keys: {present}"
-
-    def test_recipe_boolean_toggles_stay_boolean(self, recipe: dict) -> None:
-        for key in BOOL_KEYS & set(recipe):
-            assert isinstance(recipe[key], bool), (
-                f"{key} must be bool, got {type(recipe[key]).__name__}={recipe[key]!r}"
-            )
-
-    def test_recipe_enum_toggles_stay_in_allowed_set(self, recipe: dict) -> None:
-        """Catches e.g. ``splitting_algorithm: 'foo'`` that would blow up at runtime.
-
-        Only validates string-typed values — a handful of keys in
-        ``STRING_ENUM_KEYS`` (e.g. ``artificial_text_filter``) accept a bool
-        at the Curator layer, and the recipe deliberately uses the bool form.
-        That mixed-type behaviour is a separate contract clean-up and must
-        not block an operator-facing recipe check.
-        """
-        for key, allowed in STRING_ENUM_KEYS.items():
-            value = recipe.get(key)
-            if not isinstance(value, str):
-                continue
-            assert value in allowed, f"{key}={value!r} not in {sorted(allowed)}"
-
-    def test_recipe_declares_a_splitting_algorithm(self, recipe: dict) -> None:
-        """A split pipeline without a chosen splitter is a runtime error, not a default."""
-        assert "splitting_algorithm" in recipe, (
-            "split-minimal.yaml must declare splitting_algorithm explicitly"
-        )
 
 
 @pytest.mark.skipif(

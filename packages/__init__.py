@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""CDF integration layer — ``packages/``, ``adapters/``, ``apps/``.
+"""PAIDF integration layer — ``packages/``, ``adapters/``, ``apps/``.
 
 Product terminology
 -------------------
