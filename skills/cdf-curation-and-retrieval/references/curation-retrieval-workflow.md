@@ -32,30 +32,10 @@ Curator IV2 and CE1 can feed TMM.
 Operator Path D on local compose (wait for health, collection **id**, lab
 document ingest): `docs/user-guide/operations-cds.md`.
 
-For GA bulk ingest, validate, stage to `s3://`, insert, wait, then search.
-Use pipeline `cosmos_video_search_milvus` on public 1.2.0. `COLLECTION`
-must be the create-collection **id**.
-
-```bash
-make ds-health
-make ingest-curator \
-  CURATOR_DIR=/path/to/curator/output-root \
-  OUT=$PWD/data/cds-ce1.parquet \
-  EMBEDDING_BACKEND=ce1
-make stage-cds-artifact \
-  STAGE_SOURCE=$PWD/data/cds-ce1.parquet \
-  STAGE_DESTINATION=s3://bucket/cds-ce1.parquet \
-  OBJECT_STORE_ENDPOINT=https://objects.example
-make ds-create-collection \
-  NAME=traffic \
-  PIPELINE=cosmos_video_search_milvus
-make ds-bulk-insert \
-  COLLECTION=<id-from-create> \
-  PARQUET_URI=s3://bucket/cds-ce1.parquet \
-  CDS_EMBEDDING_FAMILY=ce1
-make ds-job-status JOB_ID=<job-id> WAIT=1
-make search COLLECTION=<id-from-create> QUERY='pedestrian crossing the road'
-```
+For GA bulk ingest (validate, stage to `s3://`, create the collection, insert,
+wait, then search), run the command sequence in
+[Public GA bulk-ingest workflow](cosmos-dataset-search.md#public-ga-bulk-ingest-workflow).
+`COLLECTION` must be the create-collection **id**.
 
 `POST /insert-data` 404 on a local file is expected on compose. Follow
 operations-cds.md lab ingest. Do not treat `documents:N` as GA bulk-ingest

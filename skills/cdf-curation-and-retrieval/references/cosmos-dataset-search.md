@@ -99,13 +99,19 @@ CDS-bound Curator ingest accepts CE1 only:
 
 Follow this order:
 
-1. Convert and validate a Curator CE1 export.
-2. Stage the validated parquet in CDS-readable object storage.
-3. Submit one non-retried `/insert-data` request.
-4. Poll the returned job to a successful terminal state.
-5. Search only after successful completion.
+1. Confirm CDS is healthy.
+2. Convert and validate a Curator CE1 export.
+3. Stage the validated parquet in CDS-readable object storage.
+4. Create the collection and keep the returned **id**.
+5. Submit one non-retried `/insert-data` request.
+6. Poll the returned job to a successful terminal state.
+7. Search only after successful completion.
+
+Use pipeline `cosmos_video_search_milvus` on public 1.2.0.
 
 ```bash
+make ds-health
+
 make ingest-curator \
   CURATOR_DIR=/path/to/curator/ce1-output \
   OUT=$PWD/data/cds-ce1.parquet \
@@ -115,6 +121,10 @@ make stage-cds-artifact \
   STAGE_SOURCE=$PWD/data/cds-ce1.parquet \
   STAGE_DESTINATION=s3://bucket/cds-ce1.parquet \
   OBJECT_STORE_ENDPOINT=https://objects.example
+
+make ds-create-collection \
+  NAME=traffic \
+  PIPELINE=cosmos_video_search_milvus
 
 make ds-bulk-insert \
   COLLECTION=<id-from-create> \

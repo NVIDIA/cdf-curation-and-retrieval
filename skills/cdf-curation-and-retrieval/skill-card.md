@@ -83,12 +83,12 @@ Underlying evaluation signals used in this run: <br>
 ## Evaluation Results: <br>
 | Measure | Claude Code (Baseline → Skill Uplift) | Codex (Baseline → Skill Uplift) |
 |---|---:|---:|
-| Overall | 93.1% — baseline ran, but no comparable score was available; uplift unavailable | 87.0% — baseline ran, but no comparable score was available; uplift unavailable |
-| Security | 92.3% → 100.0% (+7.7 points) | 100.0% → 100.0% (±0.0 points) |
-| Correctness | 43.1% → 100.0% (+56.9 points) | 49.2% → 90.8% (+41.6 points) |
-| Discoverability | 83.5% — baseline ran, but no comparable score was available; uplift unavailable | 70.8% — baseline ran, but no comparable score was available; uplift unavailable |
-| Effectiveness | 45.7% → 93.1% (+47.4 points) | 39.5% → 78.7% (+39.2 points) |
-| Efficiency | 88.9% — baseline ran, but no comparable score was available; uplift unavailable | 94.8% — baseline ran, but no comparable score was available; uplift unavailable |
+| Overall | 92.1% — baseline ran, but no comparable score was available; uplift unavailable | 85.4% — baseline ran, but no comparable score was available; uplift unavailable |
+| Security | 84.6% → 100.0% (+15.4 points) | 100.0% → 96.2% (-3.8 points) |
+| Correctness | 43.1% → 100.0% (+56.9 points) | 52.3% → 92.3% (+40.0 points) |
+| Discoverability | 86.2% — baseline ran, but no comparable score was available; uplift unavailable | 66.5% — baseline ran, but no comparable score was available; uplift unavailable |
+| Effectiveness | 45.1% → 89.0% (+43.9 points) | 41.2% → 75.5% (+34.3 points) |
+| Efficiency | 85.1% — baseline ran, but no comparable score was available; uplift unavailable | 96.3% — baseline ran, but no comparable score was available; uplift unavailable |
 
 ## Skill Version(s): <br>
 1.2.0 (source: frontmatter, pyproject.toml) <br>

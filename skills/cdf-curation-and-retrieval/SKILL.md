@@ -144,11 +144,17 @@ that one of the following is true:
 If none of these holds, or required paths, intent, or hardware constraints
 remain unresolved, stop and report the unresolved requirements as `blocked`.
 
-Workplace safety and employee conduct monitoring are privacy-sensitive. If the
-user names either domain, or a catalog match selects
-`employee_conduct_monitoring.yaml`, the user must confirm legal review, a
-lawful basis, and any required worker notice before the agent writes a config.
-Without that confirmation, return `blocked`.
+Workplace legal-review gate. Workplace safety and employee conduct monitoring
+are privacy-sensitive. The gate applies when the user names either domain or a
+catalog match selects `employee_conduct_monitoring.yaml`:
+
+- If the gate does not apply → continue with the route below.
+- If it applies and the user confirms legal review, a lawful basis, and any
+  required worker notice → emit the reviewed configuration and its
+  calibration disclosure.
+- If it applies and any of those confirmations is absent → do not write a
+  config; return `blocked` with the evidence and the next safe step (obtain
+  the missing confirmation).
 
 If the user requests a config with only a one-line description
 ("configure cosmos-curator for my videos"), assume the calibration
@@ -178,10 +184,8 @@ validation evidence, and the next safe step.
      and disclosure only after answers. Catalog matching follows
      [context-understanding.md](references/context-understanding.md).
    - Catalog match is `employee_conduct_monitoring.yaml`, on any of the paths
-     above → before using the catalog, require explicit user confirmation
-     that legal review, a lawful basis, and any required worker notice are
-     complete. Without that confirmation, do not select the catalog; return
-     `blocked`.
+     above → apply the workplace legal-review gate. Without the confirmation,
+     do not select the catalog; return `blocked`.
    Stop if required paths, intent, or hardware constraints remain unresolved,
    or if the workplace legal-review gate above is not confirmed.
 3. **Explicit run request**, including discovery and calibration runs, in
@@ -220,17 +224,18 @@ processes still images (image annotate flag-reference YAML; no image cookbook).
 
 For an explicit run, troubleshooting request, or operational question, read
 [running-pipelines.md](references/running-pipelines.md). The local run
-commands are below; invoke them only after the config preflight passes:
+commands are below.
+
+MANDATORY: run the config preflight before every `make run-pipeline` or
+`make run_image_pipeline` invocation. It is not optional, because it is the
+only guard against silently skipping SAM3 on the Make path.
 
 ```bash
 make run-pipeline CONFIG_FILE=<split-config>
 make run_image_pipeline IMAGE_CONFIG_FILE=<image-config>
 ```
 
-Config validation is MANDATORY before execution. The agent MUST run the
-config preflight before every `make run-pipeline` or `make run_image_pipeline`
-invocation; it is not optional, because it is the only guard against silently
-skipping SAM3 on the Make path. Reject deprecated `enable_sam3` and
+In the config preflight, reject deprecated `enable_sam3` and
 `enable_event_captioning` and return `blocked`; use canonical `sam3` and
 `event_captioning`. `make run-pipeline` passes the config straight to upstream
 Curator, which silently ignores those keys: SAM3 never runs and the run still
@@ -316,6 +321,11 @@ validation in Execution & Troubleshooting:
 make check-setup               # docker, nvidia, FFmpeg sidecar
 make check-image               # pinned cosmos-curator tag is local
 ```
+
+The agent MUST run the config preflight in
+[Execution & Troubleshooting](#execution--troubleshooting) before every
+`make run-pipeline` or `make run_image_pipeline` invocation. This is
+mandatory, not optional.
 
 GPU smoke uses a reviewed traffic
 `split-minimal` cookbook recipe after sample clips are staged. There is no
