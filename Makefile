@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # =============================================================================
-# PAIDF Curation and Retrieval - Makefile (local/operator façade)
+# CDF Curation and Retrieval - Makefile (local/operator façade)
 # =============================================================================
 # Make delegates finite operations to the CLI. External orchestration integrates
 # through the CLI/container/API contracts, not through Make.
@@ -30,8 +30,10 @@ SHELL := /bin/bash
 	run-pipeline run_image_pipeline shell ffmpeg-install \
 	up-dataset-search down-dataset-search ingest-curator search \
 	ds-health ds-pipelines ds-collections ds-create-collection ds-get-collection \
-	ds-bulk-insert ds-job-status stage-cds-artifact caption-build caption-validate \
+	ds-pipeline-collections ds-draw-pipeline \
+	ds-bulk-insert ds-job-status stage-cds-artifact caption-from-curator caption-build caption-validate \
 	caption-readiness caption-search caption-upload caption-bulk-insert \
+	caption-stats caption-get caption-rewrite \
 	prepare-cds-ce1-for-tdm run-data-mining-select run-data-mining-unique-match \
 	image-embeddings-build image-embeddings-validate-input run-image-embeddings \
 	image-embeddings-validate-output text-embeddings-validate-input \
@@ -49,29 +51,63 @@ COSMOS_REPO_URL ?= https://github.com/NVIDIA/cosmos-curator.git
 COSMOS_CURATOR_REGISTRY ?= nvcr.io/nvidia/cosmos/cosmos-curator
 COSMOS_CURATOR_TAG ?= 2.3.0
 COSMOS_CURATOR_IMAGE ?= cosmos-curator
+# CDS runtime profile selects the Dataset Search pins below.
+#   public     = NGC GA (OSS default)
+#   internal   = separately supplied images (pins in gitignored local.env)
+CDS_PROFILE ?= public
+
+ifeq ($(CDS_PROFILE),public)
+# Assigned, not defaulted: public is the OSS path and must always resolve to NGC GA images. With `?=` an
+# internal pin left in .env / local.env silently retargets it, because
+# both files are included before these defaults. Command-line overrides still
+# win, so `make ... DATASET_SEARCH_TAG=x` keeps working.
+DATASET_SEARCH_REGISTRY = nvcr.io/nvidia/blueprint/cosmos-dataset-search
+DATASET_SEARCH_TAG = 1.2.0
+COSMOS_EMBED_IMAGE = nvcr.io/nvidia/blueprint/cosmos-embed1-oss:1.2.0
+# Internal-profile pins. Public hosts cannot pull them and the public compose
+# files never start them, so a stale pin must not reach the extras pull.
+CDS_POSTGRES_IMAGE =
+CAPTION_EMBED_NIM_IMAGE =
+CRADIO_NIM_IMAGE =
+else
 DATASET_SEARCH_REGISTRY ?= nvcr.io/nvidia/blueprint/cosmos-dataset-search
-DATASET_SEARCH_TAG ?= 1.0.0
+DATASET_SEARCH_TAG ?= 1.2.0
+endif
 DATASET_SEARCH_IMAGE ?= cosmos-dataset-search
 DATA_MINING_REGISTRY ?= nvcr.io/nvidia/tao/tao-toolkit
 DATA_MINING_TAG ?= 7.2.0-data-services
 DATA_MINING_IMAGE ?= tao-toolkit
+# Query-time embed service (NGC). CDS 1.2.0 publishes CE1 OSS as a container;
+# it replaces the nvcr.io/nim/nvidia/cosmos-embed1 NIM used before 1.2.0.
+# Caption NIM / C-Radio / cds-postgres are internal-profile pins — set the full image
+# refs in gitignored local.env.
+COSMOS_EMBED_IMAGE ?= nvcr.io/nvidia/blueprint/cosmos-embed1-oss:1.2.0
+COSMOS_EMBED_MODELS_DIR ?=
+COSMOS_EMBED_PORT ?= 9000
+CDS_POSTGRES_IMAGE ?=
+CAPTION_EMBED_NIM_IMAGE ?=
+CRADIO_NIM_IMAGE ?=
 
 export COSMOS_CURATOR_REGISTRY COSMOS_CURATOR_TAG COSMOS_CURATOR_IMAGE
 export DATASET_SEARCH_REGISTRY DATASET_SEARCH_TAG DATASET_SEARCH_IMAGE
 export DATA_MINING_REGISTRY DATA_MINING_TAG DATA_MINING_IMAGE
+export COSMOS_EMBED_IMAGE CDS_POSTGRES_IMAGE CAPTION_EMBED_NIM_IMAGE CRADIO_NIM_IMAGE
+export COSMOS_EMBED_MODELS_DIR COSMOS_EMBED_PORT
 
 IMAGE_NAME ?= $(COSMOS_CURATOR_IMAGE)
 IMAGE_TAG ?= $(COSMOS_CURATOR_TAG)
 MODELS_DIR ?= $(HOME)/models
-MODEL_LIST ?= transnetv2,qwen3_vl_30b,qwen3_vl_30b_fp8,qwen2.5_lm,qwen2.5_vl,internvideo2_mm,clip_vit,aesthetic_scorer,cosmos_embed1_224p,sam3
+# bert is the google-bert/bert-large-uncased sidecar. internvideo2_mm does not
+# vendor it, and InternVideo2 init fails with a None tokenizer path without it.
+MODEL_LIST ?= transnetv2,qwen3_vl_30b,qwen3_vl_30b_fp8,qwen2.5_lm,qwen2.5_vl,internvideo2_mm,bert,clip_vit,aesthetic_scorer,cosmos_embed1_224p,sam3
 COSMOS_IMAGE_ENVS ?= cuml,default,legacy-transformers,seedvr,model-download,sam3
 DATA_DIR ?=
 GPUS ?= all
 EXTRA_DOCKER_ARGS ?=
-PAIDF_CLI ?= paidf_curation_and_retrieval
+CDF_CLI ?= cdf_curation_and_retrieval
 
 # Cosmos Curator OpenAI/HF config mount (container: /cosmos_curator/config/cosmos_curator.yaml).
-# Prefer env-generated config (Option A): SQA_VLM_BASE_URL / SQA_LLM_BASE_URL or
+# Prefer env-generated config (Option A):
 # COSMOS_CURATOR_OPENAI_<ROLE>_BASE_URL / _API_KEY. Falls back to host dir when env unset.
 # See: uv run python -m adapters.cosmos_curator.openai_config_env prepare --help
 COSMOS_CURATOR_CONFIG_DIR ?= $(HOME)/.config/cosmos_curator
@@ -109,13 +145,18 @@ FFMPEG_MOUNT = -v "$(FFMPEG_DIR):/opt/ffmpeg:ro" \
 REGISTRY ?= $(COSMOS_CURATOR_REGISTRY)
 
 # ---------------------------------------------------------------------------
-# Dataset Search (CDS) — pull-only; CDS_PROFILE selects public vs internal pin
+# Dataset Search (CDS) — pull-only; CDS_PROFILE (set above, with the pins it
+# selects) chooses public or internal.
 # ---------------------------------------------------------------------------
-CDS_PROFILE ?= public
 CDS_IMAGE ?= $(DATASET_SEARCH_IMAGE)
 CDS_TAG ?= $(DATASET_SEARCH_TAG)
 DATASET_SEARCH_URL ?= http://localhost:8888
 CDS_URL ?= $(DATASET_SEARCH_URL)
+# Browser-facing CDS API URL (not a docker-internal hostname).
+CDS_PUBLIC_HOST ?= localhost
+CDS_API_PORT ?= 8888
+CDS_API_PUBLIC_URL ?= http://$(CDS_PUBLIC_HOST):$(CDS_API_PORT)/v1
+CDS_CDN_URL ?=
 CURATOR_DIR ?=
 EMBEDDING_BACKEND ?= auto
 OUT ?= ./data/dataset_search_ingest.parquet
@@ -137,12 +178,16 @@ ALLOW_LAB_DOCUMENT_FALLBACK ?= 0
 CAPTION_JSON ?=
 CAPTION_PARQUET ?=
 INDEXED_ID_FILE ?=
+CAPTION_KEY ?=
 CAPTION_MODEL_NAME ?= default
 CAPTION_DATA_SOURCE ?=
 CAPTION_QUERY ?=
 CAPTION_SEARCH_LIMIT ?= 5000
 CAPTION_SEARCH_DATA_SOURCE ?=
+CAPTION_CLIP_ID ?=
+PIPELINE_DIAGRAM_OUT ?=
 DATASET_SEARCH_COMPOSE ?= deploy/compose/docker-compose.yml
+DATASET_SEARCH_COMPOSE_EMBED ?= deploy/compose/docker-compose.embed.yml
 
 # ---------------------------------------------------------------------------
 # Data Mining — TAO Toolkit Data-Services (tmm nearest_neighbors +
@@ -284,7 +329,7 @@ endif
 
 help:
 	@echo ""
-	@echo "PAIDF Curation and Retrieval — Make-only operator UX"
+	@echo "CDF Curation and Retrieval — Make-only operator UX"
 	@echo "===================================================="
 	@echo ""
 	@echo "Get images:"
@@ -315,28 +360,35 @@ help:
 	@echo "                             CONFIG_FILE=$(CONFIG_FILE)"
 	@echo "                             DOCKER_NETWORK=$(DOCKER_NETWORK) MODELS_MOUNT_MODE=$(MODELS_MOUNT_MODE)"
 	@echo "                             [CURATOR_TMP=/path/for/scratch] [SEEDVR_VARIANT=$(SEEDVR_VARIANT)]"
-	@echo "                             OpenAI endpoints: set SQA_VLM_BASE_URL + SQA_LLM_BASE_URL"
+	@echo "                             OpenAI endpoints: set COSMOS_CURATOR_OPENAI_CAPTION_BASE_URL"
+	@echo "                             + COSMOS_CURATOR_OPENAI_ENHANCE_BASE_URL"
 	@echo "                             (Makefile writes task-local /cosmos_curator/config)"
 	@echo "  make run_image_pipeline    Image annotate (IMAGE_CONFIG_FILE=$(IMAGE_CONFIG_FILE))"
 	@echo "  make shell                 Interactive shell in Curator container"
 	@echo ""
 	@echo "Dataset Search (CDS_PROFILE=public|internal — see .env.example):"
-	@echo "  make pull-dataset-search   Pull CDS image"
-	@echo "  make up-dataset-search     Start Milvus + Dataset Search via compose"
+	@echo "  make pull-dataset-search   Pull CDS API image"
+	@echo "  make up-dataset-search     Start compose"
 	@echo "  make down-dataset-search   Stop Dataset Search compose stack"
 	@echo "  make ds-health             GET /health (CDS_URL=$(CDS_URL))"
 	@echo "  make ds-pipelines          List embedding pipelines"
+	@echo "  make ds-pipeline-collections PIPELINE=..."
+	@echo "  make ds-draw-pipeline      PIPELINE=... PIPELINE_DIAGRAM_OUT=..."
 	@echo "  make ds-collections        List collections"
 	@echo "  make ds-create-collection  NAME=... PIPELINE=cosmos_video_search_milvus"
-	@echo "  make ds-get-collection     COLLECTION=..."
+	@echo "  make ds-get-collection     COLLECTION=<collection-id> (id only; a name returns 404)"
 	@echo "  make ingest-curator        Curator export → CDS parquet"
 	@echo "                             CURATOR_DIR=... OUT=$(OUT) [COLLECTION=...] [EMBEDDING_BACKEND=auto|iv2|ce1]"
 	@echo "  make stage-cds-artifact    STAGE_SOURCE=... STAGE_DESTINATION=s3://bucket/key"
 	@echo "  make ds-bulk-insert        COLLECTION=... PARQUET_URI=s3://bucket/key CDS_EMBEDDING_FAMILY=ce1"
 	@echo "  make ds-job-status         JOB_ID=... [WAIT=1]"
+	@echo "  make caption-from-curator  CURATOR_DIR=... CAPTION_PARQUET=... [INDEXED_ID_FILE=...]"
 	@echo "  make caption-build         CAPTION_JSON=... CAPTION_PARQUET=..."
 	@echo "  make caption-validate      CAPTION_PARQUET=... [INDEXED_ID_FILE=...]"
 	@echo "  make caption-readiness     PIPELINE=... CDS_PROFILE=internal CDS_URL=..."
+	@echo "  make caption-stats         GET /captions/stats"
+	@echo "  make caption-get           CAPTION_CLIP_ID=..."
+	@echo "  make caption-rewrite       CAPTION_QUERY='...'"
 	@echo "  make caption-search        CAPTION_QUERY='...' [CAPTION_SEARCH_LIMIT=5000]"
 	@echo "  make caption-upload        CAPTION_PARQUET=... CDS_URL=..."
 	@echo "  make caption-bulk-insert   PARQUET_URI=s3://bucket/captions.parquet"
@@ -383,7 +435,7 @@ help:
 	@echo ""
 	@echo "Cookbooks: cookbook/README.md"
 	@echo "  Curator: make run-pipeline CONFIG_FILE=cookbook/traffic-video-analytics/split.yaml"
-	@echo "  CDS:     make ds-health && make search COLLECTION=... QUERY='...'"
+	@echo "  CDS:     docs/user-guide/operations-cds.md (GA 1.2.0; collection id)"
 	@echo "  Data mining: make run-data-mining-select DATA_DIR=\$$PWD/data TMM_CONFIG_FILE=cookbook/nearest-neighbor-mining/tmm.yaml"
 	@echo ""
 	@echo "Linting:"
@@ -396,8 +448,9 @@ help:
 	@echo "  make run-pipeline CONFIG_FILE=configs/split.yaml MODELS_DIR=/models DATA_DIR=/data"
 	@echo "  make ds-health"
 	@echo "  make ds-create-collection NAME=traffic PIPELINE=cosmos_video_search_milvus"
-	@echo "  make ingest-curator CURATOR_DIR=/path/to/curator/out OUT=./data/ingest.parquet"
-	@echo "  make search COLLECTION=traffic QUERY='person crossing'"
+	@echo "  make ingest-curator CURATOR_DIR=cookbook/traffic-video-analytics/output/split-minimal \\"
+	@echo "      OUT=./data/ingest.parquet COLLECTION=<id> ALLOW_LAB_DOCUMENT_FALLBACK=1"
+	@echo "  make search COLLECTION=<id> QUERY='person crossing'"
 	@echo "  make run-data-mining-select DATA_DIR=\$$PWD/data TMM_CONFIG_FILE=cookbook/nearest-neighbor-mining/tmm.yaml"
 	@echo ""
 	@echo "FFmpeg sidecar (required for Curator distributable images):"
@@ -442,12 +495,13 @@ check-setup:
 	@if [ ! -x "$(FFMPEG_DIR)/bin/ffmpeg" ] || [ ! -x "$(FFMPEG_DIR)/bin/ffprobe" ]; then \
 		echo "ERROR: FFmpeg sidecar not found at $(FFMPEG_DIR)/bin"; \
 		echo "       cosmos-curator's Docker image does NOT bundle FFmpeg."; \
-		echo "       Build / install a GPU-enabled FFmpeg under $(FFMPEG_DIR)/"; \
-		echo "       so the layout is:"; \
+		echo "       A path inherited from an earlier campaign is not usable until"; \
+		echo "       both binaries exist. Build them in place:"; \
+		echo "         make ffmpeg-install FFMPEG_DIR=$(FFMPEG_DIR)"; \
+		echo "       Expected layout:"; \
 		echo "         $(FFMPEG_DIR)/bin/ffmpeg"; \
 		echo "         $(FFMPEG_DIR)/bin/ffprobe"; \
 		echo "         $(FFMPEG_DIR)/lib/*.so"; \
-		echo "       Override the location via:  make ... FFMPEG_DIR=/path"; \
 		exit 1; \
 	fi
 	@echo "OK: FFmpeg sidecar: $$($(FFMPEG_DIR)/bin/ffmpeg -version 2>/dev/null | head -1)"
@@ -548,7 +602,8 @@ check-curator-runtime:
 	fi
 	@if [ ! -x "$(FFMPEG_DIR)/bin/ffmpeg" ]; then \
 		echo "ERROR: $(FFMPEG_DIR)/bin/ffmpeg not found."; \
-		echo "       Run 'make ffmpeg-install' or 'make check-setup'."; \
+		echo "       A leftover FFMPEG_DIR is not a sidecar. Build one in place:"; \
+		echo "         make ffmpeg-install FFMPEG_DIR=$(FFMPEG_DIR)"; \
 		exit 1; \
 	fi
 	@if [ ! -d "$(MODELS_DIR)" ]; then \
@@ -650,7 +705,7 @@ pull-dataset-search:
 	if [ -z "$$registry" ] || [ -z "$$tag" ]; then \
 		if [ "$$profile" = "public" ]; then \
 			registry="$${registry:-nvcr.io/nvidia/blueprint/cosmos-dataset-search}"; \
-			tag="$${tag:-1.0.0}"; \
+			tag="$${tag:-1.2.0}"; \
 		fi; \
 	fi; \
 	if [ -z "$$registry" ] || [ -z "$$tag" ]; then \
@@ -661,10 +716,10 @@ pull-dataset-search:
 		echo "Set CDS runtime in .env (see .env.example):"; \
 		echo "  CDS_PROFILE=public"; \
 		echo "  DATASET_SEARCH_REGISTRY=nvcr.io/nvidia/blueprint/cosmos-dataset-search"; \
-		echo "  DATASET_SEARCH_TAG=1.0.0"; \
+		echo "  DATASET_SEARCH_TAG=1.2.0"; \
 		echo "  DATASET_SEARCH_IMAGE=cosmos-dataset-search"; \
 		echo ""; \
-		echo "Internal EA: CDS_PROFILE=internal + private/local tag (gitignored local.env)."; \
+		echo "Internal profile: CDS_PROFILE=internal + private/local tag (gitignored local.env)."; \
 		echo "Then re-run: make pull-dataset-search"; \
 		echo ""; \
 		exit 1; \
@@ -672,20 +727,26 @@ pull-dataset-search:
 	echo ""; \
 	echo "=== Pulling Dataset Search (CDS_PROFILE=$$profile) ==="; \
 	echo ""; \
-	echo "  Source: $$registry:$$tag"; \
-	echo "  Local:  $(DATASET_SEARCH_IMAGE):$$tag"; \
+	echo "  API source: $$registry:$$tag"; \
+	echo "  API local:  $(DATASET_SEARCH_IMAGE):$$tag"; \
 	echo ""; \
 	docker pull "$$registry:$$tag"; \
 	docker tag "$$registry:$$tag" "$(DATASET_SEARCH_IMAGE):$$tag"; \
+	for extra in "$(CDS_POSTGRES_IMAGE)" "$(COSMOS_EMBED_IMAGE)" "$(CAPTION_EMBED_NIM_IMAGE)" "$(CRADIO_NIM_IMAGE)"; do \
+		if [ -n "$$extra" ]; then \
+			echo "  Extra:   $$extra"; \
+			docker pull "$$extra"; \
+		fi; \
+	done; \
 	echo ""; \
 	echo "Pull complete: $(DATASET_SEARCH_IMAGE):$$tag"; \
-	echo "  Next: make up-dataset-search  (or point CDS_URL at an upstream CDS stack)"
+	echo "  Next: make up-dataset-search  (API $(DATASET_SEARCH_URL))"
 
 pull-all: pull pull-dataset-search pull-data-mining
 	@echo ""
-	@echo "All three images pulled (Curator + Dataset Search + Data Mining)."
+	@echo "All images pulled (Curator + Dataset Search API + Data Mining)."
 	@echo "Profiles: CDS_PROFILE=$(CDS_PROFILE) — see .env.example"
-	@echo "Next: make run-pipeline / make ds-health / make run-data-mining-select"
+	@echo "Next: make run-pipeline / make up-dataset-search / make ds-health / make search"
 
 tag-local-images:
 	@if [ -z "$(DATASET_SEARCH_TAG)" ] || [ -z "$(DATA_MINING_TAG)" ]; then \
@@ -721,20 +782,66 @@ check-dataset-search-image:
 		echo "       make pull-dataset-search"; \
 		exit 1; \
 	fi
+# Compose runs the neutral local tag, which every profile retags into. Pinning
+# the registry variable is therefore not enough on its own: a build from another
+# registry pulled under the same tag would satisfy the check above. A pulled image keeps
+# the registry it came from in RepoDigests, so assert provenance for public.
+	@if [ "$(CDS_PROFILE)" = "public" ]; then \
+		if ! docker image inspect "$(DATASET_SEARCH_IMAGE):$(DATASET_SEARCH_TAG)" \
+			--format '{{join .RepoDigests "\n"}}' 2>/dev/null \
+			| grep -qF "$(DATASET_SEARCH_REGISTRY)@sha256:"; then \
+			echo "ERROR: $(DATASET_SEARCH_IMAGE):$(DATASET_SEARCH_TAG) was not pulled from"; \
+			echo "       $(DATASET_SEARCH_REGISTRY)."; \
+			echo "       CDS_PROFILE=public runs NGC GA images only. This tag points at a"; \
+			echo "       locally built image or one from another registry. Re-pull with:"; \
+			echo "       make pull-dataset-search CDS_PROFILE=public"; \
+			exit 1; \
+		fi; \
+	fi
 	@echo "OK: $(DATASET_SEARCH_IMAGE):$(DATASET_SEARCH_TAG)"
 
 up-dataset-search: check-dataset-search-image
-	@echo "Starting Dataset Search stack (Milvus + pulled image only)..."
+	@echo "Starting Dataset Search stack (Milvus + CDS API)..."
+	@compose_files="-f $(DATASET_SEARCH_COMPOSE)"; \
+	if [ "$(CDS_PROFILE)" = "public" ]; then \
+		if [ -z "$(COSMOS_EMBED_MODELS_DIR)" ] || [ ! -d "$(COSMOS_EMBED_MODELS_DIR)" ]; then \
+			echo "ERROR: CDS_PROFILE=public needs COSMOS_EMBED_MODELS_DIR to be an existing"; \
+			echo "       Cosmos-Embed1 snapshot dir (config.json + *.safetensors). The query"; \
+			echo "       embedder cannot download its own weights, and the snapshot must be"; \
+			echo "       at the revision the container verifies. Download it once, then pass"; \
+			echo "       the directory. See"; \
+			echo "       docs/user-guide/installation.md#cosmos-embed1-weights."; \
+			exit 1; \
+		fi; \
+		echo "CDS_PROFILE=public: including $(DATASET_SEARCH_COMPOSE_EMBED)"; \
+		compose_files="$$compose_files -f $(DATASET_SEARCH_COMPOSE_EMBED)"; \
+	fi; \
 	DATASET_SEARCH_IMAGE="$(DATASET_SEARCH_IMAGE)" \
 	DATASET_SEARCH_TAG="$(DATASET_SEARCH_TAG)" \
+	CDS_API_PUBLIC_URL="$(CDS_API_PUBLIC_URL)" \
+	CDS_CDN_URL="$(CDS_CDN_URL)" \
+	CDS_POSTGRES_IMAGE="$(CDS_POSTGRES_IMAGE)" \
 	COSMOS_EMBED_NIM_URI="$(COSMOS_EMBED_NIM_URI)" \
+	COSMOS_EMBED_URI="$(COSMOS_EMBED_URI)" \
+	COSMOS_EMBED_MODELS_DIR="$(COSMOS_EMBED_MODELS_DIR)" \
+	COSMOS_EMBED_PORT="$(COSMOS_EMBED_PORT)" \
 	CRADIO_NIM_URI="$(CRADIO_NIM_URI)" \
 	ALLOWED_PIPELINES="$(ALLOWED_PIPELINES)" \
-		docker compose -f "$(DATASET_SEARCH_COMPOSE)" up -d
+	CAPTION_PG_URL="$(CAPTION_PG_URL)" \
+	ANNOTATIONS_DB_URL="$(ANNOTATIONS_DB_URL)" \
+	CAPTION_PROMPT="$(CAPTION_PROMPT)" \
+	CAPTION_VLM_MODEL_NAME="$(CAPTION_VLM_MODEL_NAME)" \
+	CAPTION_VLM_NIM_URI="$(CAPTION_VLM_NIM_URI)" \
+		docker compose $$compose_files up -d
 	@echo "Dataset Search API: $(DATASET_SEARCH_URL)"
+	@echo "  Browser API URL:  $(CDS_API_PUBLIC_URL)"
+	@echo "  Remote browser:   set CDS_PUBLIC_HOST to a hostname the browser can reach."
 
 down-dataset-search:
-	docker compose -f "$(DATASET_SEARCH_COMPOSE)" down
+	COSMOS_EMBED_MODELS_DIR="$(or $(COSMOS_EMBED_MODELS_DIR),/nonexistent)" \
+	COSMOS_EMBED_IMAGE="$(or $(COSMOS_EMBED_IMAGE),unset)" \
+	docker compose -f "$(DATASET_SEARCH_COMPOSE)" \
+		-f "$(DATASET_SEARCH_COMPOSE_EMBED)" down --remove-orphans
 
 # CDS / glue helpers call the internal Python entrypoint (not operator-facing).
 PIPELINE ?= cosmos_video_search_milvus
@@ -742,15 +849,28 @@ NAME ?=
 
 ds-health:
 	DATASET_SEARCH_URL="$(DATASET_SEARCH_URL)" CDS_URL="$(CDS_URL)" \
-		uv run $(PAIDF_CLI) ds health --cds-url "$(CDS_URL)"
+		uv run $(CDF_CLI) ds health --cds-url "$(CDS_URL)"
 
 ds-pipelines:
 	DATASET_SEARCH_URL="$(DATASET_SEARCH_URL)" CDS_URL="$(CDS_URL)" \
-		uv run $(PAIDF_CLI) ds pipelines --cds-url "$(CDS_URL)"
+		uv run $(CDF_CLI) ds pipelines --cds-url "$(CDS_URL)"
+
+ds-pipeline-collections:
+	@test -n "$(PIPELINE)" || { echo "ERROR: PIPELINE= required"; exit 1; }
+	DATASET_SEARCH_URL="$(DATASET_SEARCH_URL)" CDS_URL="$(CDS_URL)" \
+		uv run $(CDF_CLI) ds pipeline-collections "$(PIPELINE)" --cds-url "$(CDS_URL)"
+
+ds-draw-pipeline:
+	@test -n "$(PIPELINE)" || { echo "ERROR: PIPELINE= required"; exit 1; }
+	@test -n "$(PIPELINE_DIAGRAM_OUT)" || { echo "ERROR: PIPELINE_DIAGRAM_OUT= required"; exit 1; }
+	DATASET_SEARCH_URL="$(DATASET_SEARCH_URL)" CDS_URL="$(CDS_URL)" \
+		uv run $(CDF_CLI) ds draw-pipeline "$(PIPELINE)" \
+		--output "$(PIPELINE_DIAGRAM_OUT)" \
+		--cds-url "$(CDS_URL)"
 
 ds-collections:
 	DATASET_SEARCH_URL="$(DATASET_SEARCH_URL)" CDS_URL="$(CDS_URL)" \
-		uv run $(PAIDF_CLI) ds collections --cds-url "$(CDS_URL)"
+		uv run $(CDF_CLI) ds collections --cds-url "$(CDS_URL)"
 
 ds-create-collection:
 	@if [ -z "$(NAME)" ]; then \
@@ -758,7 +878,7 @@ ds-create-collection:
 		exit 1; \
 	fi
 	DATASET_SEARCH_URL="$(DATASET_SEARCH_URL)" CDS_URL="$(CDS_URL)" \
-		uv run $(PAIDF_CLI) ds create-collection \
+		uv run $(CDF_CLI) ds create-collection \
 		--name "$(NAME)" \
 		--pipeline "$(PIPELINE)" \
 		$(if $(COLLECTION_ID),--id "$(COLLECTION_ID)",) \
@@ -766,28 +886,30 @@ ds-create-collection:
 
 ds-get-collection:
 	@if [ -z "$(COLLECTION)" ]; then \
-		echo "ERROR: COLLECTION= required (name or id)"; \
+		echo "ERROR: COLLECTION= required (collection id from ds-create-collection;"; \
+		echo "       CDS resolves this endpoint by id only, a name returns 404)"; \
 		exit 1; \
 	fi
 	DATASET_SEARCH_URL="$(DATASET_SEARCH_URL)" CDS_URL="$(CDS_URL)" \
-		uv run $(PAIDF_CLI) ds get-collection "$(COLLECTION)" --cds-url "$(CDS_URL)"
+		uv run $(CDF_CLI) ds get-collection "$(COLLECTION)" --cds-url "$(CDS_URL)"
 
 ingest-curator:
 	@if [ -z "$(CURATOR_DIR)" ]; then \
 		echo "ERROR: CURATOR_DIR= required (iv2_embd_parquet/ or ce1_embd*_parquet/)"; \
 		exit 1; \
 	fi
-	uv run $(PAIDF_CLI) ingest-curator \
+	uv run $(CDF_CLI) ingest-curator \
 		--curator-dir "$(CURATOR_DIR)" \
 		--output-parquet "$(OUT)" \
 		--embedding-backend "$(EMBEDDING_BACKEND)" \
 		$(if $(COLLECTION),--collection "$(COLLECTION)" --ingest,--convert-only) \
-		$(if $(filter 1 true yes,$(ALLOW_LAB_DOCUMENT_FALLBACK)),--allow-lab-document-fallback,)
+		$(if $(filter 1 true yes,$(ALLOW_LAB_DOCUMENT_FALLBACK)),--allow-lab-document-fallback,) \
+		--cds-url "$(CDS_URL)"
 
 stage-cds-artifact:
 	@test -n "$(STAGE_SOURCE)" || { echo "ERROR: STAGE_SOURCE= required"; exit 1; }
 	@test -n "$(STAGE_DESTINATION)" || { echo "ERROR: STAGE_DESTINATION= required"; exit 1; }
-	uv run $(PAIDF_CLI) integration stage-artifact \
+	uv run $(CDF_CLI) integration stage-artifact \
 		--source "$(STAGE_SOURCE)" \
 		--destination "$(STAGE_DESTINATION)" \
 		--access-key-env "$(OBJECT_STORE_ACCESS_KEY_ENV)" \
@@ -799,7 +921,7 @@ ds-bulk-insert:
 	@test -n "$(COLLECTION)" || { echo "ERROR: COLLECTION= required"; exit 1; }
 	@test -n "$(PARQUET_URI)" || { echo "ERROR: PARQUET_URI= required"; exit 1; }
 	@test -n "$(CDS_EMBEDDING_FAMILY)" || { echo "ERROR: CDS_EMBEDDING_FAMILY=ce1 required"; exit 1; }
-	uv run $(PAIDF_CLI) ds bulk-insert \
+	uv run $(CDF_CLI) ds bulk-insert \
 		--collection "$(COLLECTION)" \
 		--embedding-family "$(CDS_EMBEDDING_FAMILY)" \
 		--parquet "$(PARQUET_URI)" \
@@ -811,44 +933,66 @@ ds-bulk-insert:
 
 ds-job-status:
 	@test -n "$(JOB_ID)" || { echo "ERROR: JOB_ID= required"; exit 1; }
-	uv run $(PAIDF_CLI) ds job-status "$(JOB_ID)" \
+	uv run $(CDF_CLI) ds job-status "$(JOB_ID)" \
 		$(if $(filter 1 true yes,$(WAIT)),--wait,--no-wait) \
 		--timeout-seconds "$(POLL_TIMEOUT_SECONDS)" \
 		--poll-interval-seconds "$(POLL_INTERVAL_SECONDS)" \
 		--cds-url "$(CDS_URL)"
 
+caption-from-curator:
+	@test -n "$(CURATOR_DIR)" || { echo "ERROR: CURATOR_DIR= required (Curator output root)"; exit 1; }
+	@test -n "$(CAPTION_PARQUET)" || { echo "ERROR: CAPTION_PARQUET= required"; exit 1; }
+	uv run $(CDF_CLI) integration captions from-curator \
+		--curator-dir "$(CURATOR_DIR)" \
+		--output-parquet "$(CAPTION_PARQUET)" \
+		$(if $(INDEXED_ID_FILE),--indexed-id-file "$(INDEXED_ID_FILE)",) \
+		$(if $(CAPTION_KEY),--caption-key "$(CAPTION_KEY)",)
+
 caption-build:
 	@test -n "$(CAPTION_JSON)" || { echo "ERROR: CAPTION_JSON= required"; exit 1; }
 	@test -n "$(CAPTION_PARQUET)" || { echo "ERROR: CAPTION_PARQUET= required"; exit 1; }
-	uv run $(PAIDF_CLI) integration captions build \
+	uv run $(CDF_CLI) integration captions build \
 		--input-json "$(CAPTION_JSON)" \
 		--output-parquet "$(CAPTION_PARQUET)" \
 		$(if $(INDEXED_ID_FILE),--indexed-id-file "$(INDEXED_ID_FILE)",)
 
 caption-validate:
 	@test -n "$(CAPTION_PARQUET)" || { echo "ERROR: CAPTION_PARQUET= required"; exit 1; }
-	uv run $(PAIDF_CLI) integration captions validate \
+	uv run $(CDF_CLI) integration captions validate \
 		--parquet "$(CAPTION_PARQUET)" \
 		$(if $(INDEXED_ID_FILE),--indexed-id-file "$(INDEXED_ID_FILE)",)
 
 caption-readiness:
 	@test -n "$(PIPELINE)" || { echo "ERROR: PIPELINE= required"; exit 1; }
-	uv run $(PAIDF_CLI) integration captions readiness \
+	uv run $(CDF_CLI) integration captions readiness \
 		--cds-url "$(CDS_URL)" \
 		--cds-profile "$(CDS_PROFILE)" \
 		--pipeline "$(PIPELINE)"
 
 caption-search:
 	@test -n "$(CAPTION_QUERY)" || { echo "ERROR: CAPTION_QUERY= required"; exit 1; }
-	uv run $(PAIDF_CLI) integration captions search \
+	uv run $(CDF_CLI) integration captions search \
 		--query "$(CAPTION_QUERY)" \
 		--limit "$(CAPTION_SEARCH_LIMIT)" \
 		$(if $(CAPTION_SEARCH_DATA_SOURCE),--data-source "$(CAPTION_SEARCH_DATA_SOURCE)",) \
 		--cds-url "$(CDS_URL)"
 
+caption-stats:
+	uv run $(CDF_CLI) ds captions stats --cds-url "$(CDS_URL)"
+
+caption-get:
+	@test -n "$(CAPTION_CLIP_ID)" || { echo "ERROR: CAPTION_CLIP_ID= required"; exit 1; }
+	uv run $(CDF_CLI) ds captions get "$(CAPTION_CLIP_ID)" --cds-url "$(CDS_URL)"
+
+caption-rewrite:
+	@test -n "$(CAPTION_QUERY)" || { echo "ERROR: CAPTION_QUERY= required"; exit 1; }
+	uv run $(CDF_CLI) ds captions rewrite \
+		--query "$(CAPTION_QUERY)" \
+		--cds-url "$(CDS_URL)"
+
 caption-upload:
 	@test -n "$(CAPTION_PARQUET)" || { echo "ERROR: CAPTION_PARQUET= required"; exit 1; }
-	uv run $(PAIDF_CLI) integration captions upload \
+	uv run $(CDF_CLI) integration captions upload \
 		--parquet "$(CAPTION_PARQUET)" \
 		--model-name "$(CAPTION_MODEL_NAME)" \
 		--data-source "$(CAPTION_DATA_SOURCE)" \
@@ -857,7 +1001,7 @@ caption-upload:
 
 caption-bulk-insert:
 	@test -n "$(PARQUET_URI)" || { echo "ERROR: PARQUET_URI= required"; exit 1; }
-	uv run $(PAIDF_CLI) integration captions bulk-insert \
+	uv run $(CDF_CLI) integration captions bulk-insert \
 		--parquet "$(PARQUET_URI)" \
 		--access-key-env "$(OBJECT_STORE_ACCESS_KEY_ENV)" \
 		--secret-key-env "$(OBJECT_STORE_SECRET_KEY_ENV)" \
@@ -871,7 +1015,7 @@ search:
 		exit 1; \
 	fi
 	DATASET_SEARCH_URL="$(DATASET_SEARCH_URL)" CDS_URL="$(CDS_URL)" \
-		uv run $(PAIDF_CLI) search --collection "$(COLLECTION)" --query "$(QUERY)"
+		uv run $(CDF_CLI) search --collection "$(COLLECTION)" --query "$(QUERY)"
 
 # ---------------------------------------------------------------------------
 # Data Mining — pull + DivKNN job (no image build in this repo)
@@ -882,7 +1026,7 @@ prepare-cds-ce1-for-tdm:
 	@test -n "$(CDS_CE1_TARGET_SELECTION)" || { echo "ERROR: CDS_CE1_TARGET_SELECTION= required"; exit 1; }
 	@test -n "$(CDS_CE1_SOURCE_SELECTION)" || { echo "ERROR: CDS_CE1_SOURCE_SELECTION= required"; exit 1; }
 	@test -n "$(CDS_EMBEDDING_FAMILY)" || { echo "ERROR: CDS_EMBEDDING_FAMILY=ce1 required"; exit 1; }
-	uv run $(PAIDF_CLI) integration prepare-cds-ce1-for-tdm \
+	uv run $(CDF_CLI) integration prepare-cds-ce1-for-tdm \
 		--data-dir "$(DATA_DIR)" \
 		--target-selection "$(CDS_CE1_TARGET_SELECTION)" \
 		--source-selection "$(CDS_CE1_SOURCE_SELECTION)" \
@@ -948,7 +1092,7 @@ run-data-mining-select: check-data-mining-image
 	@echo "Running tmm nearest_neighbors in $(DATA_MINING_IMAGE):$(DATA_MINING_TAG)..."
 	@echo "  docker-equivalent: --gpus $(GPUS) --shm-size=$(DATA_MINING_SHM_SIZE) -v $(DATA_DIR):/data --entrypoint tmm"
 	DATA_MINING_IMAGE="$(DATA_MINING_IMAGE)" DATA_MINING_TAG="$(DATA_MINING_TAG)" \
-		uv run $(PAIDF_CLI) data-mining-select \
+		uv run $(CDF_CLI) data-mining-select \
 		--data-dir "$(DATA_DIR)" \
 		$(if $(TMM_CONFIG_FILE),--config-file "$(TMM_CONFIG_FILE)",) \
 		--target-subdir "$(TARGET_SUBDIR)" \
@@ -974,7 +1118,7 @@ run-data-mining-unique-match: check-data-mining-image
 	@echo "Running tmm unique_neighbor_matching in $(DATA_MINING_IMAGE):$(DATA_MINING_TAG)..."
 	@echo "  docker-equivalent: --gpus $(GPUS) --shm-size=$(DATA_MINING_SHM_SIZE) -v $(DATA_DIR):/data --entrypoint tmm"
 	DATA_MINING_IMAGE="$(DATA_MINING_IMAGE)" DATA_MINING_TAG="$(DATA_MINING_TAG)" \
-		uv run $(PAIDF_CLI) data-mining-unique-match \
+		uv run $(CDF_CLI) data-mining-unique-match \
 		--data-dir "$(DATA_DIR)" \
 		$(if $(TMM_UNM_CONFIG_FILE),--config-file "$(TMM_UNM_CONFIG_FILE)",) \
 		--target-subdir "$(TARGET_SUBDIR)" \
@@ -1005,7 +1149,7 @@ image-embeddings-build:
 	@test -n "$(DATA_DIR)" || { echo "ERROR: DATA_DIR= required"; exit 1; }
 	@test -n "$(IMAGE_EMBEDDING_JSON)" || { echo "ERROR: IMAGE_EMBEDDING_JSON= required"; exit 1; }
 	@test -n "$(IMAGE_EMBEDDING_INPUT)" || { echo "ERROR: IMAGE_EMBEDDING_INPUT= required"; exit 1; }
-	uv run $(PAIDF_CLI) integration image-embeddings build \
+	uv run $(CDF_CLI) integration image-embeddings build \
 		--input-json "$(IMAGE_EMBEDDING_JSON)" \
 		--data-dir "$(DATA_DIR)" \
 		--output-parquet "$(IMAGE_EMBEDDING_INPUT)"
@@ -1013,13 +1157,13 @@ image-embeddings-build:
 image-embeddings-validate-input:
 	@test -n "$(DATA_DIR)" || { echo "ERROR: DATA_DIR= required"; exit 1; }
 	@test -n "$(IMAGE_EMBEDDING_INPUT)" || { echo "ERROR: IMAGE_EMBEDDING_INPUT= required"; exit 1; }
-	uv run $(PAIDF_CLI) integration image-embeddings validate-input \
+	uv run $(CDF_CLI) integration image-embeddings validate-input \
 		--parquet "$(IMAGE_EMBEDDING_INPUT)" \
 		--data-dir "$(DATA_DIR)"
 
 run-image-embeddings: check-data-mining-image
 	@test -n "$(DATA_DIR)" || { echo "ERROR: DATA_DIR= required"; exit 1; }
-	uv run $(PAIDF_CLI) integration image-embeddings run \
+	uv run $(CDF_CLI) integration image-embeddings run \
 		--data-dir "$(DATA_DIR)" \
 		$(if $(IMAGE_EMBEDDING_CONFIG),--config-file "$(IMAGE_EMBEDDING_CONFIG)",\
 			--input-parquet "$(IMAGE_EMBEDDING_INPUT)" \
@@ -1037,7 +1181,7 @@ image-embeddings-validate-output:
 	@test -n "$(DATA_DIR)" || { echo "ERROR: DATA_DIR= required"; exit 1; }
 	@test -n "$(IMAGE_EMBEDDING_INPUT)" || { echo "ERROR: IMAGE_EMBEDDING_INPUT= required"; exit 1; }
 	@test -n "$(IMAGE_EMBEDDING_OUTPUT)" || { echo "ERROR: IMAGE_EMBEDDING_OUTPUT= required"; exit 1; }
-	uv run $(PAIDF_CLI) integration image-embeddings validate-output \
+	uv run $(CDF_CLI) integration image-embeddings validate-output \
 		--input-parquet "$(IMAGE_EMBEDDING_INPUT)" \
 		--output-parquet "$(IMAGE_EMBEDDING_OUTPUT)" \
 		--data-dir "$(DATA_DIR)"
@@ -1045,13 +1189,13 @@ image-embeddings-validate-output:
 text-embeddings-validate-input:
 	@test -n "$(DATA_DIR)" || { echo "ERROR: DATA_DIR= required"; exit 1; }
 	@test -n "$(TEXT_EMBEDDING_INPUT)" || { echo "ERROR: TEXT_EMBEDDING_INPUT= required"; exit 1; }
-	uv run $(PAIDF_CLI) integration text-embeddings validate-input \
+	uv run $(CDF_CLI) integration text-embeddings validate-input \
 		--parquet "$(TEXT_EMBEDDING_INPUT)" \
 		--data-dir "$(DATA_DIR)"
 
 run-text-embeddings: check-data-mining-image
 	@test -n "$(DATA_DIR)" || { echo "ERROR: DATA_DIR= required"; exit 1; }
-	uv run $(PAIDF_CLI) integration text-embeddings run \
+	uv run $(CDF_CLI) integration text-embeddings run \
 		--data-dir "$(DATA_DIR)" \
 		$(if $(TEXT_EMBEDDING_CONFIG),--config-file "$(TEXT_EMBEDDING_CONFIG)",\
 			--input-parquet "$(TEXT_EMBEDDING_INPUT)" \
@@ -1068,7 +1212,7 @@ text-embeddings-validate-output:
 	@test -n "$(DATA_DIR)" || { echo "ERROR: DATA_DIR= required"; exit 1; }
 	@test -n "$(TEXT_EMBEDDING_INPUT)" || { echo "ERROR: TEXT_EMBEDDING_INPUT= required"; exit 1; }
 	@test -n "$(TEXT_EMBEDDING_OUTPUT)" || { echo "ERROR: TEXT_EMBEDDING_OUTPUT= required"; exit 1; }
-	uv run $(PAIDF_CLI) integration text-embeddings validate-output \
+	uv run $(CDF_CLI) integration text-embeddings validate-output \
 		--input-parquet "$(TEXT_EMBEDDING_INPUT)" \
 		--output-parquet "$(TEXT_EMBEDDING_OUTPUT)" \
 		--data-dir "$(DATA_DIR)"
@@ -1333,14 +1477,25 @@ download-models: check-image
 		fi; \
 	fi
 	@echo "Downloading models using Docker container..."
-	docker run --gpus all --rm \
-		-v "$(HOME)/.config/cosmos_curator:/cosmos_curator/config:ro" \
-		-v "$(MODELS_DIR):/config/models" \
-		-e HF_HOME=/config/models \
-		--network=host \
-		$(IMAGE_NAME):$(IMAGE_TAG) \
-		bash -c "cd /opt/cosmos-curator && pixi run -e model-download --as-is python -m cosmos_curator.core.managers.model_cli download \
-		--models $(MODEL_LIST)"
+	@rest=$$(printf '%s\n' "$(MODEL_LIST)" | tr ',' '\n' | grep -vx 't5_xxl' | paste -sd, -); \
+	download_one() { \
+	  pixi_env="$$1"; models="$$2"; \
+	  echo "  pixi env: $$pixi_env"; \
+	  echo "  models:   $$models"; \
+	  docker run --gpus all --rm \
+	    -v "$(HOME)/.config/cosmos_curator:/cosmos_curator/config:ro" \
+	    -v "$(MODELS_DIR):/config/models" \
+	    -e HF_HOME=/config/models \
+	    --network=host \
+	    $(IMAGE_NAME):$(IMAGE_TAG) \
+	    bash -c "cd /opt/cosmos-curator && pixi run -e $$pixi_env --as-is python -m cosmos_curator.core.managers.model_cli download --models $$models"; \
+	}; \
+	if [ -n "$$rest" ]; then download_one model-download "$$rest" || { echo "ERROR: model download failed"; exit 1; }; fi; \
+	case ",$(MODEL_LIST)," in \
+	  *,t5_xxl,*) \
+	    echo "t5_xxl reduction imports torch, which the model-download env does not ship."; \
+	    download_one default t5_xxl || { echo "ERROR: t5_xxl download failed"; exit 1; } ;; \
+	esac
 	@echo ""
 	@echo "Models downloaded to: $(MODELS_DIR)"
 	@echo "Verify: ls -lh $(MODELS_DIR)"
@@ -1362,7 +1517,7 @@ download-seedvr2 download-seedvr-ckpts:
 		--variant "$(SEEDVR_VARIANT)"
 	@echo "OK: $$(ls -lh "$(MODELS_DIR)/seedvr2" 2>/dev/null || true)"
 
-# Curator MODEL_LIST weights, then SeedVR2 ckpts (SQA-03 / SR path).
+# Curator MODEL_LIST weights, then SeedVR2 ckpts (super-resolution path).
 download-all-models: download-models download-seedvr2
 	@echo "OK: Curator models + SeedVR2 ($(SEEDVR_VARIANT)) under $(MODELS_DIR)"
 

@@ -1,0 +1,61 @@
+scenario: "ego-centric autonomous-vehicle camera clips (PhysicalAI-AV)"
+
+# Reference taxonomy for the AV recipes. The recipes and
+# av_event_caption_prompt.txt inline these values as their event
+# categories and SAM3 objects_of_interest; nothing loads this file at
+# runtime, so edit both sides together.
+#
+# Categories name what constrains ego progress in the scene, not the
+# maneuver ego chose in response. Event captioning reports each one as an
+# entry in events[] carrying its own start_time and end_time.
+events_list:
+  - nominal_driving
+  - lead_vehicle_braking
+  - cut_in_or_encroachment
+  - pedestrian_in_path
+  - cyclist_or_scooter_in_path
+  - cross_traffic_conflict
+  - oncoming_intrusion
+  - construction_or_work_zone
+  - roadway_obstruction_or_debris
+  - stopped_or_stalled_vehicle
+  - emergency_vehicle_present
+  - signal_or_sign_control_point
+  - collision_or_near_miss
+
+# SAM3 prompts for the actors the event captions actually name. Skip lane
+# markings, generic "road", crosswalks, and speed-limit signs — they spawn
+# hundreds of tracks. Split emergency vehicles into fleet subclasses; SAM3
+# misses the abstract "emergency vehicle" class.
+objects_of_interest:
+  - car
+  - truck
+  - bus
+  - school bus
+  - van
+  - motorcycle
+  - trailer
+  - bicycle
+  - scooter
+  - pedestrian
+  - wheelchair
+  - stroller
+  - worker
+  - deer
+  - dog
+  - traffic light
+  - stop sign
+  - yield sign
+  - traffic cone
+  - construction barrel
+  - construction barrier
+  - jersey barrier
+  - bollard
+  - dumpster
+  - excavator
+  - police car
+  - ambulance
+  - fire truck
+  - speed bump
+  - railroad crossing gate
+  - road debris

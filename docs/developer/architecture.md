@@ -7,31 +7,33 @@ SPDX-License-Identifier: Apache-2.0
 
 ## System at a glance
 
-Overall **Physical AI Data Factory — Curation and Retrieval** architecture
-(Cosmos Curator and Data Mining):
+Overall **Cosmos Data Factory Curation and Retrieval** architecture
+(Cosmos Curator, Cosmos Dataset Search, and Data Mining):
 
-![PAIDF Curation and Retrieval Architecture](../assets/PAIDF_CC_and_TDM.png)
+![CDF Curation and Retrieval Architecture](../assets/CDF-CC-CDS-TDM.png)
 
 Cosmos Curator video/image curation pipeline only (split, caption, embed,
 dedup, shard):
 
-![Smart Data Curation — Cosmos Curator](../assets/smart-data-curation-cosmos-curator.png)
+![Smart Data Curation Cosmos Curator](../assets/smart-data-curation-cosmos-curator.png)
 
-Operator and glue layers:
+Operator and orchestration layers:
 
 ```mermaid
 flowchart LR
   ops[Operator]
   make[Make targets]
-  glue[Internal workflows and adapters]
+  workflows[Workflows and adapters]
   curator[Cosmos Curator image]
   tao[TAO Data Services image]
+  cds[Cosmos Dataset Search at CDS_URL]
   data[Host DATA_DIR mounted at /data]
 
   ops --> make
-  make --> glue
-  glue --> curator
-  glue --> tao
+  make --> workflows
+  workflows --> curator
+  workflows --> tao
+  workflows --> cds
   curator --> data
   tao --> data
 ```
@@ -39,15 +41,63 @@ flowchart LR
 | Layer | Role |
 |-------|------|
 | **Make** | Public interface (`make help`) |
+| **apps/cli** | Helper CLI that Make calls: argument parsing, JSON and error output |
 | **apps/workflows** | Validation order, handoff policy, JSON-ready results |
-| **adapters** | Docker argument construction, parquet prep, path mounts |
+| **packages** | Domain types, ports (external-boundary protocols), in-process analytics |
+| **adapters** | Docker argument construction, parquet prep, path mounts, CDS and Cosmos-Embed1 HTTP clients |
 | **Pulled images** | Cosmos Curator; TAO Toolkit Data Services (`embedding`, `tmm`) |
+| **Cosmos Dataset Search** | Local Compose on a laptop; elsewhere a separately deployed service reached through `CDS_URL` |
 
-There is no shared scheduler or cross-step state in this repository. Sequence
-Make targets yourself or from an external orchestrator.
+There is no shared scheduler or cross-step state in this repository. Operators
+(or an external orchestrator) sequence Make targets. CDS on a laptop is
+Compose; anywhere else CDS is a prerequisite endpoint deployed from its own
+repository and reached through `CDS_URL`.
 
-Clean-architecture detail:
-[paidf-clean-architecture.md](../architecture/paidf-clean-architecture.md).
+## Code layers
+
+Dependency direction inside this repository. Make is the operator
+interface; everything below it is contributor detail.
+
+```mermaid
+flowchart TB
+  make["Make targets\npublic operator interface"]
+  cdf["helper CLI\napps/cli, called by Make"]
+  composition["apps/composition.py\nadapter and runner factories"]
+  workflows["apps/workflows\ncurator | mining | embeddings"]
+  ports["packages/ports\nexternal-boundary protocols"]
+  domain["packages/domain\nshared data shapes"]
+  analytics["packages/analytics\nin-process algorithms"]
+  adapters["adapters\nCurator | Data Mining | Dataset Search | Docker runtime"]
+  runtimes["product runtimes\nCosmos Curator | TAO DS / TMM | CDS"]
+
+  make --> cdf
+  cdf --> composition
+  cdf --> workflows
+  composition --> adapters
+  workflows --> ports
+  workflows --> domain
+  workflows --> analytics
+  ports --> adapters
+  adapters --> runtimes
+```
+
+How the helper CLI wires a single command:
+
+```mermaid
+flowchart LR
+  cli["apps/cli\nClick parsing | env defaults | JSON/error presentation"]
+  workflow["apps/workflows\nvalidation order | handoff policy | JSON-ready payloads"]
+  compose["apps/composition.py\nconstructs collaborators"]
+  port["packages/ports\nprotocols"]
+  adapter["adapters\nHTTP | Docker | parquet | object store"]
+  runtime["external runtimes\npulled images and deployed services"]
+
+  cli --> workflow
+  cli --> compose
+  workflow --> port
+  compose --> adapter
+  adapter --> runtime
+```
 
 ## Product engines
 
@@ -71,14 +121,18 @@ flowchart TB
   curator[Cosmos Curator]
   tmm[nearest neighbors or unique match]
   out[Mined parquet / UNM output dir]
+  cdsIngest[CDS ingest]
+  cdsSearch[CDS text search]
 
   images --> imgEmb
   captions --> txtEmb
   videos --> curator
   imgEmb --> tmm
   txtEmb --> tmm
-  curator --> tmm
+  curator -->|IV2 or CE1 parquet| tmm
   tmm --> out
+  curator -->|CE1 parquet| cdsIngest
+  cdsIngest --> cdsSearch
 ```
 
 Declare the producer family when mining with:
@@ -141,7 +195,13 @@ Every TAO Data Services `embedding` and `tmm` run requires
 - Direct Make variables are validated and written to a temporary read-only
   spec.
 
-## Cosmos Dataset Search
+## CDS Path D
 
-CDS deployment and retrieval are out of scope for this product path. Curator
-CE1/IV2 and TAO CLIP/SigLIP embeddings are used here for TMM handoffs.
+Local compose, CE1 ingest, and text search (public GA):
+[Cosmos Dataset Search](../user-guide/operations-cds.md).
+
+CDS is a separate engine from Data Mining. Curator CE1 feeds Path D.
+InternVideo2 and CLIP/SigLIP remain Path C (mining) unless a CDS deployment
+documents otherwise.
+The public profile adds `deploy/compose/docker-compose.embed.yml`,
+which serves Cosmos-Embed1 at host port 9000 for text search.

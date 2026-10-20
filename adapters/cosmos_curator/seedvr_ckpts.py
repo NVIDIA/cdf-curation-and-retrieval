@@ -71,7 +71,7 @@ def _dir_is_writable(path: Path) -> bool:
     try:
         if not path.is_dir():
             path.mkdir(parents=True, exist_ok=True)
-        probe = path / ".paidf_write_probe"
+        probe = path / ".cdf_write_probe"
         probe.write_text("ok", encoding="utf-8")
         probe.unlink(missing_ok=True)
         return True

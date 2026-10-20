@@ -49,6 +49,10 @@ mcq_outputs/
 # Cookbook sample clips come from NGC, not git. Keep run output ignored.
 cookbook/**/videos/*.mp4
 cookbook/**/output/
+# PhysicalAI-AV sessions are downloaded, not shipped.
+cookbook/physical-ai-av/videos/
+cookbook/physical-ai-av/videos-single/
+cookbook/physical-ai-av/.hf-cache/
 /01_chunks/
 /metas/
 
@@ -116,6 +120,11 @@ debug_frames/
 _archive/
 */_archive/
 
+# Local private copies. Directory names starting with _ stay untracked
+# (for example cookbook/_physical-ai-av/). Does not match files such as
+# __init__.py.
+**/_*/
+
 # User-specific/environment-specific configs (not tracked)
 configs/pipeline_config_LV.yaml
 configs/screening_LV.yaml
@@ -128,18 +137,13 @@ configs/*_kpi_eval.yaml
 .pytest_cache/
 runs/
 
-# Local SQA bundles/evidence copies. Keep release-controlled SQA packages out of
-# ordinary product commits unless explicitly promoted into tracked source.
+# Local working folders (not tracked).
 /SQA/
 /SQA_v*/
 /sqa_data/
 /osrb_audit/
-
-# Local-only E2E acceptance test harness (cosmos-curator container smoke tests).
-# Driver scripts and fixtures are user-specific; do not track.
 /E2E-test/
-
-/docs/plc/
+/docs/plc/*
 
 # Local Claude Code files: keep settings/local state untracked, but DO track the
 # skills symlink so Claude Code discovers the canonical top-level skills/ dir.

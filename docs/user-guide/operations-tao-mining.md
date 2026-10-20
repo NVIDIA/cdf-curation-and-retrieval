@@ -3,13 +3,23 @@ SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All 
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Operations: Data Mining
+# Data Mining
 
-Run image/text embeddings and nearest-neighbor mining with Make.
+1. [About Curation and Retrieval](README.md)
+2. [Installation](installation.md)
+3. [Samples and Cookbooks](samples-and-cookbooks.md)
+4. [Get Started](getting-started.md)
+5. [Cosmos Curator](operations-curator.md)
+6. [Data Mining](operations-tao-mining.md)
+7. [Cosmos Dataset Search](operations-cds.md)
+8. [VLM and LLM Endpoints](vlm-llm-endpoints.md)
+9. [Troubleshooting](troubleshooting.md)
+
+Run image and text embeddings and nearest-neighbor mining with Make.
 
 Product context (Curator producers feeding mining):
 [Developer architecture](../developer/architecture.md) ·
-[`../assets/PAIDF_CC_and_TDM.png`](../assets/PAIDF_CC_and_TDM.png).
+[`../assets/CDF-CC-CDS-TDM.png`](../assets/CDF-CC-CDS-TDM.png).
 
 Prerequisites: `make pull-data-mining` and `make check-data-mining-image`.
 Keep all data and local model artifacts under `DATA_DIR` (mounted at `/data`).
@@ -23,7 +33,7 @@ data/nearest-neighbor-mining/
   B.parquet
 ```
 
-## Image embeddings
+## Image Embeddings
 
 ```bash
 make image-embeddings-build \
@@ -52,7 +62,7 @@ Input JSON: unique non-empty `filepath` per row; paths must resolve under
 `DATA_DIR`. Do not pre-declare the reserved `embedding` column. Set
 `IMAGE_EMBEDDING_DRY_RUN=1` to emit Docker args without starting the job.
 
-## Text embeddings
+## Text Embeddings
 
 Input parquet must include a non-empty `text` column and must not include
 `embedding`.
@@ -77,7 +87,7 @@ make text-embeddings-validate-output \
 
 `TEXT_EMBEDDING_MODEL` accepts `clip`, `siglip`, or `siglip2`.
 
-## Nearest neighbors
+## Nearest Neighbors
 
 Make default `TDM_EMBEDDING_BACKEND` is `ce1`. Override with `iv2`, `clip`,
 or `siglip` to match the embedding producer.
@@ -108,7 +118,7 @@ make run-data-mining-select \
 Preflight validates non-empty selections, finite vectors, one dimension per
 side, and matching dimensions across S and B.
 
-## Unique neighbor matching
+## Unique Neighbor Matching
 
 ```bash
 make run-data-mining-unique-match \
@@ -154,9 +164,9 @@ make run-data-mining-unique-match \
 Successful non-dry-run UNM validates `final_unique_files.parquet` under the
 output directory.
 
-## Evidence and status
+## Evidence and Status
 
-Mining Make targets invoke an internal CLI that emits JSON including:
+Mining Make targets invoke a helper CLI that emits JSON including:
 
 - `status`: `dry-run` or `completed`
 - `command`: Docker argv evidence
@@ -164,12 +174,12 @@ Mining Make targets invoke an internal CLI that emits JSON including:
 
 Treat every nonzero exit as failure.
 
-## Make variables
+## Make Variables
 
 Do not mix a vendor config file with the corresponding direct
 input/output/model variables on the same run.
 
-### Image embeddings
+### Image Embedding Variables
 
 | Variable | Default | Notes |
 |----------|---------|-------|
@@ -183,7 +193,7 @@ input/output/model variables on the same run.
 | `IMAGE_EMBEDDING_BATCH_SIZE` | `64` | Positive integer |
 | `IMAGE_EMBEDDING_DRY_RUN` | `0` | `1` to dry-run |
 
-### Text embeddings
+### Text Embedding Variables
 
 | Variable | Default | Notes |
 |----------|---------|-------|
@@ -195,7 +205,7 @@ input/output/model variables on the same run.
 | `TEXT_EMBEDDING_BATCH_SIZE` | `64` | Positive integer |
 | `TEXT_EMBEDDING_DRY_RUN` | `0` | `1` to dry-run |
 
-### Nearest neighbors (`make run-data-mining-select`)
+### Nearest Neighbor Variables
 
 | Variable | Default | Notes |
 |----------|---------|-------|
@@ -214,7 +224,7 @@ input/output/model variables on the same run.
 
 Nearest neighbors uses `*_EMBED_COLUMN_NAME`. UNM uses `*_EMBEDDING_COLUMN`.
 
-### Unique neighbor matching (`make run-data-mining-unique-match`)
+### Unique Neighbor Matching Variables
 
 | Variable | Default | Notes |
 |----------|---------|-------|

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dataset Search adapters — online retrieval (CDS / CVDS HTTP API)."""
+"""Dataset Search adapters — online retrieval (CDS HTTP API)."""
 
 from adapters.dataset_search.retrieval_adapter import (
     DatasetSearchAdapter,

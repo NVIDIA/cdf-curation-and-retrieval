@@ -1,0 +1,144 @@
+# =============================================================================
+# PhysicalAI-AV -- Experiment B (SAM3 events): one AV caption window + SAM3
+# =============================================================================
+# Same clip policy as caption-multicam.yaml: keep each ~20 s session as
+# one clip. Caption stage: av_caption_prompt.txt (scene prose, one
+# 600-frame window). Event-caption stage: av_event_caption_prompt.txt,
+# which reports the events that constrain ego progress, anchored on the
+# SAM3 tracks, as an events[] array with start_time and end_time on each
+# event. Uneventful stretches produce no entry, so a 20 s clip yields as
+# many events as it has rather than a fixed count.
+# Copy that prompt file into DATA_DIR so Curator sees
+# /data/av_event_caption_prompt.txt.
+# Run with PIXI_ENV=sam3.
+# =============================================================================
+
+pipeline: "split"
+
+# -- I/O (under DATA_DIR, mounted at /data) --
+input_video_path: /data/videos
+output_clip_path: /data/output/caption-events-multicam
+model_weights_path: "/config/models"
+
+# -- One 20 s clip per session (do not re-chunk into 8 s clips) --
+# limit is session count, not seconds. min_clip_length drops leftovers
+# shorter than this; 2.0 matches caption-multicam.yaml.
+multi_cam: true
+primary_camera_keyword: "front_wide"
+splitting_algorithm: "fixed-stride"
+fixed_stride_split_duration: 20
+fixed_stride_min_clip_length_s: 2.0
+limit: 100
+limit_clips: 1
+
+# -- One window per clip: 600 frames covers 20 s at 30 fps --
+generate_captions: true
+captioning_algorithm: "qwen3_vl_30b_fp8"
+qwen_num_gpus_per_worker: 1
+captioning_prompt_variant: "av"
+captioning_window_size: 600
+captioning_remainder_threshold: 600
+captioning_sampling_fps: 2.0
+captioning_max_output_tokens: 4096
+vllm_sampling_temperature: 0.1
+vllm_sampling_top_p: 0.001
+vllm_sampling_repetition_penalty: 1.05
+
+# Keep in sync with av_caption_prompt.txt.
+captioning_prompt_text: |
+  The video depicts the view from a camera mounted on a car as it is driving.
+  Pay special attention to the motion of the cars, including the primary car
+  whose point-of-view we observe in the video. Also note important factors
+  that would relate to driving safety like the relative positions of pedestrians,
+  lane markers, road signs, traffic signals, and any aggressive driving behavior
+  of other vehicles. Also pay attention to interesting landmarks and describe
+  them in detail.
+
+  Write one paragraph of at most 8 sentences. Then stop. Do not continue with
+  extra detail, lists, or a second pass over the same scene.
+
+enhance_captions: false
+enhance_captions_prompt_variant: "av"
+
+motion_filter: "disable"
+aesthetic_threshold: null
+vlm_filter: "disable"
+artificial_text_filter: false
+super_resolution: false
+video_classifier: false
+
+# -- SAM3 + event captions (primary camera only) --
+# Prompts match taxonomy_av.yaml objects_of_interest (same order).
+# Skip lane markings, generic "road", crosswalks, and speed-limit signs.
+sam3: true
+sam3_prompts:
+  - "car"
+  - "truck"
+  - "bus"
+  - "school bus"
+  - "van"
+  - "motorcycle"
+  - "trailer"
+  - "bicycle"
+  - "scooter"
+  - "pedestrian"
+  - "wheelchair"
+  - "stroller"
+  - "worker"
+  - "deer"
+  - "dog"
+  - "traffic light"
+  - "stop sign"
+  - "yield sign"
+  - "traffic cone"
+  - "construction barrel"
+  - "construction barrier"
+  - "jersey barrier"
+  - "bollard"
+  - "dumpster"
+  - "excavator"
+  - "police car"
+  - "ambulance"
+  - "fire truck"
+  - "speed bump"
+  - "railroad crossing gate"
+  - "road debris"
+sam3_target_fps: 3.0
+sam3_max_clip_duration_s: 45.0
+sam3_session_reset_s: 5.0
+sam3_score_threshold_detection: 0.6
+sam3_det_nms_thresh: 0.1
+sam3_new_det_thresh: 0.8
+sam3_fill_hole_area: 256
+sam3_recondition_every_nth_frame: 8
+sam3_recondition_on_trk_masks: true
+sam3_high_conf_thresh: 0.5
+sam3_high_iou_thresh: 0.4
+sam3_region: box
+sam3_output_format: native
+sam3_write_annotated_video: true
+sam3_annotated_video_trails: false
+sam3_annotated_video_label_style: "id"
+sam3_annotated_video_mask_opacity: 20
+
+# Event captioning lives here (not in fixed_stride_*). Inline prompt is
+# null so Curator loads av_event_caption_prompt.txt from DATA_DIR.
+event_captioning: true
+event_caption_backend: "qwen"
+event_caption_qwen_variant: "qwen3_vl_30b_fp8"
+event_caption_qwen_fp8: false
+event_caption_qwen_sampling_fps: 2.0
+event_caption_qwen_temperature: 0.0
+event_caption_qwen_top_p: 1.0
+event_caption_prompt_file: /data/av_event_caption_prompt.txt
+event_caption_prompt: null
+
+# -- Embedding (Path D handoff; primary camera only) --
+generate_embeddings: true
+embedding_algorithm: "cosmos-embed1-224p"
+embedding_gpus_per_worker: 1
+embedding_batch_size: 4
+
+upload_clips: true
+write_all_caption_json: true
+perf_profile: true

@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dataset Search retrieval adapter — HTTP client over the CVDS / CDS API.
+"""Dataset Search retrieval adapter — HTTP client over the CDS API.
 
-Exposes the full standalone Dataset Search (CVDS) surface used by PAIDF:
+Exposes the full standalone Dataset Search (CDS) surface used by CDF:
 
 - Collections CRUD + admin flush
 - Pipelines list / draw
@@ -80,9 +80,49 @@ __all__ = [
     "validate_cds_embedding_family",
 ]
 
+# Builds disagree on how they reject a parquet path they cannot read. 1.0.0 and
+# pre-1.2.0 builds resolve the collection and open the file first, so a host path
+# the container cannot see comes back 404 ("File not found" / "Collection not
+# found"); they only reach 400 "Invalid S3 path format" when the file is
+# readable but is not an s3:// URI. 1.2.0 validates up front instead and returns
+# 400 "Parquet imports require plain s3://bucket/key paths[ without globbing]"
+# for any non-s3 path. All of them mean the local parquet is unreachable, which
+# is what the document fallback exists for.
+_UNREADABLE_PARQUET_MARKERS = (
+    "file not found",
+    "collection not found",
+    "s3 path",
+    "parquet imports require",
+)
+
+
+def _http_detail(response: requests.Response) -> str:
+    """Best-effort FastAPI ``detail`` string, falling back to the raw body."""
+    try:
+        body = response.json()
+    except ValueError:
+        return str(response.text).strip()[:200]
+    if isinstance(body, dict) and "detail" in body:
+        return str(body["detail"])
+    return str(body)[:200]
+
+
+def _is_unreadable_parquet_error(response: requests.Response) -> bool:
+    """True when CDS rejected the request because it cannot read the parquet.
+
+    A 400 is only treated this way when the message names the path, so genuine
+    payload rejections (bad embedding family, missing field) still raise.
+    """
+    if response.status_code == 404:
+        return True
+    if response.status_code != 400:
+        return False
+    detail = _http_detail(response).lower()
+    return any(marker in detail for marker in _UNREADABLE_PARQUET_MARKERS)
+
 
 class DatasetSearchAdapter:
-    """Full CVDS client implementing retrieval, collection admin, ingest, and refinement."""
+    """Full CDS client implementing retrieval, collection admin, ingest, and refinement."""
 
     def __init__(self, base_url: str, session: requests.Session | None = None) -> None:
         self._base_url = normalize_cds_base_url(base_url)
@@ -97,6 +137,14 @@ class DatasetSearchAdapter:
         if not path.startswith("/"):
             path = f"/{path}"
         return f"{self._base_url}{path}"
+
+    def _root_url(self, path: str) -> str:
+        if not path.startswith("/"):
+            path = f"/{path}"
+        root = self._base_url
+        if root.endswith("/v1"):
+            root = root[: -len("/v1")]
+        return f"{root}{path}"
 
     def _request(
         self,
@@ -120,6 +168,25 @@ class DatasetSearchAdapter:
             return None
         if not expect_json:
             return response.content
+        content_type = response.headers.get("Content-Type", "")
+        if "application/json" in content_type or response.text[:1] in ("{", "["):
+            return response.json()
+        return response.text
+
+    def _request_root(
+        self,
+        method: str,
+        path: str,
+        *,
+        timeout: float = 60,
+        expect_json: bool = False,
+    ) -> Any:
+        response = self._session.request(method, self._root_url(path), timeout=timeout)
+        response.raise_for_status()
+        if response.status_code == 204 or not response.content:
+            return None
+        if not expect_json:
+            return response.content if isinstance(response.content, bytes) else response.text
         content_type = response.headers.get("Content-Type", "")
         if "application/json" in content_type or response.text[:1] in ("{", "["):
             return response.json()
@@ -183,6 +250,30 @@ class DatasetSearchAdapter:
             expect_json=False,
         )
         return content if isinstance(content, (bytes, bytearray)) else bytes(content or b"")
+
+    def list_pipeline_collections(self, pipeline_id: str) -> Sequence[CollectionInfo]:
+        """GET /pipelines/{pipeline_id}/collections."""
+        if not pipeline_id:
+            raise ValueError("pipeline_id is required")
+        body = self._request("GET", f"/pipelines/{pipeline_id}/collections", timeout=120)
+        if not isinstance(body, dict):
+            raise ValueError("Unexpected pipeline-collections response: expected an object")
+        items = body.get("collections", [])
+        if not isinstance(items, list):
+            raise ValueError("Unexpected pipeline-collections response: collections must be a list")
+        collections: list[CollectionInfo] = []
+        for item_number, item in enumerate(items, start=1):
+            if not isinstance(item, Mapping):
+                raise ValueError(
+                    f"Unexpected pipeline-collections response item {item_number}: expected object"
+                )
+            raw = item.get("collection", item)
+            if not isinstance(raw, Mapping):
+                raise ValueError(
+                    f"Unexpected pipeline-collections response item {item_number}: missing collection"
+                )
+            collections.append(_parse_collection(raw, total=item.get("total_documents_count")))
+        return collections
 
     # ------------------------------------------------------------- collections
 
@@ -302,7 +393,7 @@ class DatasetSearchAdapter:
     def export_embeddings(self, collection: CollectionRef) -> Sequence[EmbeddingRecord]:
         """Best-effort export via document listing if the deployment exposes it.
 
-        Standalone CVDS does not guarantee a documents GET list; callers should
+        Standalone CDS does not guarantee a documents GET list; callers should
         prefer reconstruct=True search or parquet export when available.
         """
         if not collection.collection_id:
@@ -426,11 +517,12 @@ class DatasetSearchAdapter:
             return status.job_id
         except requests.HTTPError as exc:
             response = exc.response
-            if response is None or response.status_code != 404:
+            if response is None or not _is_unreadable_parquet_error(response):
                 raise
             if not allow_document_fallback:
                 raise BulkIngestUnavailableError(
-                    "CDS bulk ingest is unavailable (POST /insert-data returned HTTP 404); "
+                    "CDS bulk ingest is unavailable (POST /insert-data returned HTTP "
+                    f"{response.status_code}: {_http_detail(response)}); "
                     "document fallback is disabled by default"
                 ) from exc
             return self._ingest_parquet_via_documents(collection, parquet_paths)
@@ -582,6 +674,322 @@ class DatasetSearchAdapter:
                 )
             )
         return result
+
+    # --------------------------------------------------------------- captions
+
+    def add_caption(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        """POST /captions/ for one caption row."""
+        if not payload:
+            raise ValueError("caption payload is required")
+        body = self._request("POST", "/captions/", json=dict(payload), timeout=120)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def get_captions(self, clip_id: str, *, model_name: str | None = None) -> Mapping[str, Any]:
+        """GET /captions/{clip_id}."""
+        if not clip_id:
+            raise ValueError("clip_id is required")
+        params = {"model_name": model_name} if model_name else None
+        body = self._request("GET", f"/captions/{clip_id}", params=params, timeout=60)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def search_captions(
+        self,
+        query: str,
+        *,
+        limit: int = 5000,
+        data_sources: Sequence[str] | None = None,
+        extra_queries: Sequence[str] | None = None,
+    ) -> Mapping[str, Any]:
+        """POST /captions/search for caption keyword search."""
+        if not query:
+            raise ValueError("query is required")
+        payload: dict[str, Any] = {"query": query, "limit": limit}
+        if data_sources:
+            payload["data_sources"] = list(data_sources)
+        if extra_queries:
+            payload["extra_queries"] = list(extra_queries)
+        body = self._request("POST", "/captions/search", json=payload, timeout=120)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def caption_stats(self) -> Mapping[str, Any]:
+        """GET /captions/stats."""
+        body = self._request("GET", "/captions/stats", timeout=60)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def rewrite_caption_query(self, query: str, *, num_rewrites: int = 3) -> Mapping[str, Any]:
+        """POST /captions/rewrite."""
+        if not query:
+            raise ValueError("query is required")
+        body = self._request(
+            "POST",
+            "/captions/rewrite",
+            json={"query": query, "num_rewrites": num_rewrites},
+            timeout=120,
+        )
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def caption_rewrite_status(self) -> Mapping[str, Any]:
+        """GET /captions/rewrite/status."""
+        body = self._request("GET", "/captions/rewrite/status", timeout=60)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    # ------------------------------------------------------------- annotations
+
+    def list_annotations(
+        self,
+        *,
+        document_ids: Sequence[str] | None = None,
+        project_id: str | None = None,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> Mapping[str, Any]:
+        """GET /annotations."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if document_ids:
+            params["document_ids"] = list(document_ids)
+        if project_id:
+            params["project_id"] = project_id
+        body = self._request("GET", "/annotations", params=params, timeout=120)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def list_annotation_labels(
+        self, collection_id: str, *, project_id: str | None = None
+    ) -> Mapping[str, Any]:
+        """GET /annotations/labels."""
+        if not collection_id:
+            raise ValueError("collection_id is required")
+        params = {"collection_id": collection_id}
+        if project_id:
+            params["project_id"] = project_id
+        body = self._request("GET", "/annotations/labels", params=params, timeout=120)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def create_annotation(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        """POST /annotations."""
+        return self._post_mapping("/annotations", payload)
+
+    def create_annotations_batch(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        """POST /annotations/batch."""
+        return self._post_mapping("/annotations/batch", payload)
+
+    def rename_annotation_label(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        """PUT /annotations/labels."""
+        return self._put_mapping("/annotations/labels", payload)
+
+    def update_annotation(
+        self, annotation_id: str, payload: Mapping[str, Any]
+    ) -> Mapping[str, Any]:
+        """PATCH /annotations/{annotation_id}."""
+        if not annotation_id:
+            raise ValueError("annotation_id is required")
+        return self._patch_mapping(f"/annotations/{annotation_id}", payload)
+
+    def delete_annotation_label(self, collection_id: str, label: str) -> Mapping[str, Any]:
+        """DELETE /annotations/labels."""
+        if not collection_id or not label:
+            raise ValueError("collection_id and label are required")
+        body = self._request(
+            "DELETE",
+            "/annotations/labels",
+            params={"collection_id": collection_id, "label": label},
+            timeout=120,
+        )
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def merge_annotation_labels(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        """POST /annotations/merge."""
+        return self._post_mapping("/annotations/merge", payload)
+
+    def upload_annotations(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        """POST /annotations/upload."""
+        return self._post_mapping("/annotations/upload", payload)
+
+    def verify_annotation(self, annotation_id: str) -> Mapping[str, Any]:
+        """POST /annotations/{annotation_id}/verify."""
+        if not annotation_id:
+            raise ValueError("annotation_id is required")
+        body = self._request("POST", f"/annotations/{annotation_id}/verify", timeout=120)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def delete_annotation(self, annotation_id: str) -> Mapping[str, Any]:
+        """DELETE /annotations/{annotation_id}."""
+        if not annotation_id:
+            raise ValueError("annotation_id is required")
+        body = self._request("DELETE", f"/annotations/{annotation_id}", timeout=120)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def annotate_batch_by_search(
+        self, collection_id: str, payload: Mapping[str, Any]
+    ) -> Mapping[str, Any]:
+        """POST /collections/{collection_id}/annotations/batch-by-search."""
+        if not collection_id:
+            raise ValueError("collection_id is required")
+        return self._post_mapping(
+            f"/collections/{collection_id}/annotations/batch-by-search", payload
+        )
+
+    # -------------------------------------------------------------- classifiers
+
+    def train_classifier(self, collection_id: str, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        """POST /collections/{collection_id}/classifiers."""
+        if not collection_id:
+            raise ValueError("collection_id is required")
+        return self._post_mapping(f"/collections/{collection_id}/classifiers", payload)
+
+    def list_classifiers(self, collection_id: str) -> Mapping[str, Any]:
+        """GET /collections/{collection_id}/classifiers."""
+        if not collection_id:
+            raise ValueError("collection_id is required")
+        body = self._request("GET", f"/collections/{collection_id}/classifiers", timeout=120)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def export_classifier(self, collection_id: str, label: str) -> Mapping[str, Any]:
+        """GET /collections/{collection_id}/classifiers/{label}/export."""
+        if not collection_id or not label:
+            raise ValueError("collection_id and label are required")
+        body = self._request(
+            "GET",
+            f"/collections/{collection_id}/classifiers/{label}/export",
+            timeout=120,
+        )
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def delete_classifier(self, collection_id: str, label: str) -> Mapping[str, Any]:
+        """DELETE /collections/{collection_id}/classifiers/{label}."""
+        if not collection_id or not label:
+            raise ValueError("collection_id and label are required")
+        body = self._request(
+            "DELETE",
+            f"/collections/{collection_id}/classifiers/{label}",
+            timeout=120,
+        )
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    # --------------------------------------------------------- datasets/projects
+
+    def list_datasets(self) -> Mapping[str, Any]:
+        """GET /datasets."""
+        body = self._request("GET", "/datasets", timeout=120)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def get_dataset(self, dataset_id: str) -> Mapping[str, Any]:
+        """GET /datasets/{dataset_id}."""
+        if not dataset_id:
+            raise ValueError("dataset_id is required")
+        body = self._request("GET", f"/datasets/{dataset_id}", timeout=120)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def create_dataset(
+        self, payload: Mapping[str, Any], *, dataset_id: str | None = None
+    ) -> Mapping[str, Any]:
+        """POST /datasets."""
+        params = {"id": dataset_id} if dataset_id else None
+        return self._post_mapping("/datasets", payload, params=params)
+
+    def update_dataset(self, dataset_id: str, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        """PATCH /datasets/{dataset_id}."""
+        if not dataset_id:
+            raise ValueError("dataset_id is required")
+        return self._patch_mapping(f"/datasets/{dataset_id}", payload)
+
+    def delete_dataset(self, dataset_id: str) -> Mapping[str, Any]:
+        """DELETE /datasets/{dataset_id}."""
+        if not dataset_id:
+            raise ValueError("dataset_id is required")
+        body = self._request("DELETE", f"/datasets/{dataset_id}", timeout=120)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def list_projects(self) -> Mapping[str, Any]:
+        """GET /projects."""
+        body = self._request("GET", "/projects", timeout=120)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def get_project(self, project_id: str) -> Mapping[str, Any]:
+        """GET /projects/{project_id}."""
+        if not project_id:
+            raise ValueError("project_id is required")
+        body = self._request("GET", f"/projects/{project_id}", timeout=120)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def create_project(
+        self, payload: Mapping[str, Any], *, project_id: str | None = None
+    ) -> Mapping[str, Any]:
+        """POST /projects."""
+        params = {"id": project_id} if project_id else None
+        return self._post_mapping("/projects", payload, params=params)
+
+    def update_project(self, project_id: str, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        """PATCH /projects/{project_id}."""
+        if not project_id:
+            raise ValueError("project_id is required")
+        return self._patch_mapping(f"/projects/{project_id}", payload)
+
+    def save_project_documents(
+        self, project_id: str, payload: Mapping[str, Any]
+    ) -> Mapping[str, Any]:
+        """POST /projects/{project_id}/documents."""
+        if not project_id:
+            raise ValueError("project_id is required")
+        return self._post_mapping(f"/projects/{project_id}/documents", payload)
+
+    def export_project_csv(self, project_id: str) -> bytes:
+        """GET /projects/{project_id}/export."""
+        if not project_id:
+            raise ValueError("project_id is required")
+        content = self._request(
+            "GET",
+            f"/projects/{project_id}/export",
+            timeout=120,
+            expect_json=False,
+        )
+        return content if isinstance(content, (bytes, bytearray)) else str(content or "").encode()
+
+    def delete_project(self, project_id: str) -> Mapping[str, Any]:
+        """DELETE /projects/{project_id}."""
+        if not project_id:
+            raise ValueError("project_id is required")
+        body = self._request("DELETE", f"/projects/{project_id}", timeout=120)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    # ---------------------------------------------------------- misc/telemetry
+
+    def linear_probe(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        """POST /linear_probe (deprecated upstream but still part of the extended route surface)."""
+        return self._post_mapping("/linear_probe", payload)
+
+    def metrics(self) -> bytes:
+        """GET /metrics at the service root."""
+        content = self._request_root("GET", "/metrics", timeout=60)
+        return content if isinstance(content, (bytes, bytearray)) else str(content or "").encode()
+
+    def cds_metrics(self) -> bytes:
+        """GET /cds_metrics at the service root."""
+        content = self._request_root("GET", "/cds_metrics", timeout=60)
+        return content if isinstance(content, (bytes, bytearray)) else str(content or "").encode()
+
+    def _post_mapping(
+        self,
+        path: str,
+        payload: Mapping[str, Any],
+        *,
+        params: Mapping[str, Any] | None = None,
+    ) -> Mapping[str, Any]:
+        if not payload:
+            raise ValueError("JSON payload is required")
+        body = self._request("POST", path, json=dict(payload), params=params, timeout=300)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def _put_mapping(self, path: str, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        if not payload:
+            raise ValueError("JSON payload is required")
+        body = self._request("PUT", path, json=dict(payload), timeout=300)
+        return dict(body) if isinstance(body, dict) else {"result": body}
+
+    def _patch_mapping(self, path: str, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        if not payload:
+            raise ValueError("JSON payload is required")
+        body = self._request("PATCH", path, json=dict(payload), timeout=300)
+        return dict(body) if isinstance(body, dict) else {"result": body}
 
     # --------------------------------------------------------- refinement
 

@@ -38,7 +38,7 @@ def validate_cds_embedding_family(embedding_family: str) -> str:
 
 
 def normalize_cds_base_url(base_url: str) -> str:
-    """Normalize a CDS/CVDS base URL so API calls land under ``/v1``.
+    """Normalize a CDS base URL so API calls land under ``/v1``.
 
     Accepts ``http://host:8888`` or ``http://host:8888/v1`` (with or without
     trailing slash). Raises if empty.

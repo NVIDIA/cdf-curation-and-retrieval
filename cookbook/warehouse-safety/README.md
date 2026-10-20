@@ -1,7 +1,7 @@
 # Warehouse safety cookbook
 
 Experiment kit for Cosmos Curator on warehouse / distribution-center video.
-YAML is the recipe. `DATA_DIR` is the media tree. This is not an SQA campaign.
+YAML is the recipe. `DATA_DIR` is the media tree.
 
 ## What ships
 
@@ -18,7 +18,7 @@ warehouse-safety/
 
 Clips come from the NGC VSS developer sample pack
 (`nvidia/vss-developer/dev-profile-sample-data:3.1.0`). They are for trying the
-recipe, not PLC evidence. SQA warehouse media stays in `SQA_v.1.1.0/`.
+recipe, not qualification evidence.
 
 YAML I/O is `/data/...`. Make bind-mounts `DATA_DIR` at `/data` (and at the
 host path). Keep docs **outside** `videos/`; Curator treats every file in that

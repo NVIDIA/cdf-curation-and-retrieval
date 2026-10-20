@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dataset Search (CVDS) CLI commands — full standalone retrieval surface."""
+"""Dataset Search (CDS) CLI commands — full standalone retrieval surface."""
 
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import click
@@ -44,6 +45,22 @@ def _echo_json(payload: Any) -> None:
     click.echo(json.dumps(payload, indent=2, default=str))
 
 
+def _echo_bytes(payload: bytes) -> None:
+    click.echo(payload.decode("utf-8", errors="replace"), nl=False)
+
+
+def _load_json_payload(raw: str | None, path: str | None) -> dict[str, Any]:
+    if bool(raw) == bool(path):
+        raise click.ClickException("Provide exactly one of --json or --json-file")
+    try:
+        loaded = json.loads(raw if raw is not None else Path(str(path)).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    if not isinstance(loaded, dict):
+        raise click.ClickException("JSON payload must be an object")
+    return loaded
+
+
 def _credential_values(access_key_env: str, secret_key_env: str) -> tuple[str | None, str | None]:
     """Resolve a validated credential pair without accepting values as CLI arguments."""
     try:
@@ -54,7 +71,7 @@ def _credential_values(access_key_env: str, secret_key_env: str) -> tuple[str | 
 
 @click.group("ds")
 def dataset_search_group() -> None:
-    """Dataset Search (CVDS) — collections, search, ingest, jobs, refinement."""
+    """Dataset Search (CDS) — collections, search, ingest, jobs, refinement."""
 
 
 @dataset_search_group.command("health")
@@ -77,6 +94,36 @@ def pipelines(cds_url: str | None) -> None:
         for p in _client(cds_url).list_pipelines()
     ]
     _echo_json({"pipelines": items})
+
+
+@dataset_search_group.command("pipeline-collections")
+@click.argument("pipeline_id")
+@click.option("--cds-url", default=None)
+def pipeline_collections(pipeline_id: str, cds_url: str | None) -> None:
+    """List collections attached to one pipeline."""
+    items = [
+        {
+            "id": c.collection_id,
+            "name": c.name,
+            "pipeline": c.pipeline,
+            "tags": dict(c.tags),
+            "total_documents_count": c.total_documents_count,
+        }
+        for c in _client(cds_url).list_pipeline_collections(pipeline_id)
+    ]
+    _echo_json({"collections": items})
+
+
+@dataset_search_group.command("draw-pipeline")
+@click.argument("pipeline_name")
+@click.option("--mode", default="index", type=click.Choice(["index", "query"]))
+@click.option("--output", required=True, type=click.Path(dir_okay=False, writable=True))
+@click.option("--cds-url", default=None)
+def draw_pipeline(pipeline_name: str, mode: str, output: str, cds_url: str | None) -> None:
+    """Write one pipeline diagram PNG from GET /pipelines/draw/{name}."""
+    content = _client(cds_url).draw_pipeline(pipeline_name, mode=mode)
+    Path(output).write_bytes(content)
+    _echo_json({"pipeline": pipeline_name, "mode": mode, "output": output, "bytes": len(content)})
 
 
 @dataset_search_group.command("collections")
@@ -194,6 +241,17 @@ def flush(collection_id: str, cds_url: str | None) -> None:
 @click.option("--top-k", default=10, type=int)
 @click.option("--filters-json", default=None, help="JSON filters object or Milvus expr string")
 @click.option("--generate-asset-url/--no-asset-url", default=False)
+@click.option("--annotation-label", "annotation_labels", multiple=True)
+@click.option("--exclude-annotation-label", "exclude_annotation_labels", multiple=True)
+@click.option("--project-source", "project_source", multiple=True)
+@click.option("--clf-json", default=None, help="JSON linear-classifier payload")
+@click.option(
+    "--caption-query", default=None, help="Caption keyword query for fused/caption-only search"
+)
+@click.option("--auto-rewrite/--no-auto-rewrite", default=None)
+@click.option("--caption-extra-query", "caption_extra_queries", multiple=True)
+@click.option("--classifier-label", default=None)
+@click.option("--probability-expression", default=None)
 @click.option("--cds-url", default=None)
 def search_cmd(
     collection: str,
@@ -205,6 +263,15 @@ def search_cmd(
     top_k: int,
     filters_json: str | None,
     generate_asset_url: bool,
+    annotation_labels: tuple[str, ...],
+    exclude_annotation_labels: tuple[str, ...],
+    project_source: tuple[str, ...],
+    clf_json: str | None,
+    caption_query: str | None,
+    auto_rewrite: bool | None,
+    caption_extra_queries: tuple[str, ...],
+    classifier_label: str | None,
+    probability_expression: str | None,
     cds_url: str | None,
 ) -> None:
     """Multimodal search within one collection."""
@@ -220,6 +287,18 @@ def search_cmd(
                 top_k=top_k,
                 filters_json=filters_json,
                 generate_asset_url=generate_asset_url,
+                annotation_labels=annotation_labels,
+                exclude_annotation_labels=exclude_annotation_labels,
+                project_source=project_source,
+                clf_json=clf_json,
+                caption_query=caption_query,
+                auto_rewrite=auto_rewrite,
+                # Click yields () for an omitted multiple=True option, which the
+                # request layer would forward as an explicit empty list. Only
+                # None means "not requested".
+                caption_extra_queries=caption_extra_queries or None,
+                classifier_label=classifier_label,
+                probability_expression=probability_expression,
             ),
             client=_client(cds_url),
         )
@@ -234,6 +313,7 @@ def search_cmd(
 @click.option("--embedding", default=None)
 @click.option("--image", default=None)
 @click.option("--video", default=None)
+@click.option("--video-frames", default=None)
 @click.option("--top-k", default=10, type=int)
 @click.option("--filters-json", default=None)
 @click.option("--rerank/--no-rerank", default=True)
@@ -245,6 +325,7 @@ def retrieve_cmd(
     embedding: str | None,
     image: str | None,
     video: str | None,
+    video_frames: str | None,
     top_k: int,
     filters_json: str | None,
     rerank: bool,
@@ -260,6 +341,7 @@ def retrieve_cmd(
                 embedding=embedding,
                 image=image,
                 video=video,
+                video_frames=video_frames,
                 top_k=top_k,
                 filters_json=filters_json,
                 generate_asset_url=generate_asset_url,
@@ -402,6 +484,415 @@ def job_status(
 def jobs(cds_url: str | None) -> None:
     """List recent bulk-insert jobs."""
     _echo_json(list_jobs_handoff(_client(cds_url)))
+
+
+@click.group("captions")
+def captions_group() -> None:
+    """Caption CRUD, keyword search, rewrite, and stats."""
+
+
+@captions_group.command("add")
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def captions_add(raw_json: str | None, json_file: str | None, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).add_caption(_load_json_payload(raw_json, json_file)))
+
+
+@captions_group.command("get")
+@click.argument("clip_id")
+@click.option("--model-name", default=None)
+@click.option("--cds-url", default=None)
+def captions_get(clip_id: str, model_name: str | None, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).get_captions(clip_id, model_name=model_name))
+
+
+@captions_group.command("search")
+@click.option("--query", required=True)
+@click.option("--limit", default=5000, type=click.IntRange(min=1))
+@click.option("--data-source", "data_sources", multiple=True)
+@click.option("--extra-query", "extra_queries", multiple=True)
+@click.option("--cds-url", default=None)
+def captions_search(
+    query: str,
+    limit: int,
+    data_sources: tuple[str, ...],
+    extra_queries: tuple[str, ...],
+    cds_url: str | None,
+) -> None:
+    _echo_json(
+        _client(cds_url).search_captions(
+            query,
+            limit=limit,
+            data_sources=data_sources,
+            extra_queries=extra_queries,
+        )
+    )
+
+
+@captions_group.command("stats")
+@click.option("--cds-url", default=None)
+def captions_stats(cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).caption_stats())
+
+
+@captions_group.command("rewrite")
+@click.option("--query", required=True)
+@click.option("--num-rewrites", default=3, type=click.IntRange(min=0))
+@click.option("--cds-url", default=None)
+def captions_rewrite(query: str, num_rewrites: int, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).rewrite_caption_query(query, num_rewrites=num_rewrites))
+
+
+@captions_group.command("rewrite-status")
+@click.option("--cds-url", default=None)
+def captions_rewrite_status(cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).caption_rewrite_status())
+
+
+dataset_search_group.add_command(captions_group)
+
+
+@click.group("annotations")
+def annotations_group() -> None:
+    """Annotation labels and review workflows."""
+
+
+@annotations_group.command("list")
+@click.option("--document-id", "document_ids", multiple=True)
+@click.option("--project-id", default=None)
+@click.option("--limit", default=1000, type=click.IntRange(min=1))
+@click.option("--offset", default=0, type=click.IntRange(min=0))
+@click.option("--cds-url", default=None)
+def annotations_list(
+    document_ids: tuple[str, ...],
+    project_id: str | None,
+    limit: int,
+    offset: int,
+    cds_url: str | None,
+) -> None:
+    _echo_json(
+        _client(cds_url).list_annotations(
+            document_ids=document_ids,
+            project_id=project_id,
+            limit=limit,
+            offset=offset,
+        )
+    )
+
+
+@annotations_group.command("labels")
+@click.option("--collection", required=True)
+@click.option("--project-id", default=None)
+@click.option("--cds-url", default=None)
+def annotation_labels(collection: str, project_id: str | None, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).list_annotation_labels(collection, project_id=project_id))
+
+
+@annotations_group.command("create")
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def annotation_create(raw_json: str | None, json_file: str | None, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).create_annotation(_load_json_payload(raw_json, json_file)))
+
+
+@annotations_group.command("batch")
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def annotation_batch(raw_json: str | None, json_file: str | None, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).create_annotations_batch(_load_json_payload(raw_json, json_file)))
+
+
+@annotations_group.command("upload")
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def annotation_upload(raw_json: str | None, json_file: str | None, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).upload_annotations(_load_json_payload(raw_json, json_file)))
+
+
+@annotations_group.command("rename-label")
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def annotation_rename_label(
+    raw_json: str | None, json_file: str | None, cds_url: str | None
+) -> None:
+    _echo_json(_client(cds_url).rename_annotation_label(_load_json_payload(raw_json, json_file)))
+
+
+@annotations_group.command("merge-labels")
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def annotation_merge_labels(
+    raw_json: str | None, json_file: str | None, cds_url: str | None
+) -> None:
+    _echo_json(_client(cds_url).merge_annotation_labels(_load_json_payload(raw_json, json_file)))
+
+
+@annotations_group.command("update")
+@click.argument("annotation_id")
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def annotation_update(
+    annotation_id: str, raw_json: str | None, json_file: str | None, cds_url: str | None
+) -> None:
+    _echo_json(
+        _client(cds_url).update_annotation(annotation_id, _load_json_payload(raw_json, json_file))
+    )
+
+
+@annotations_group.command("verify")
+@click.argument("annotation_id")
+@click.option("--cds-url", default=None)
+def annotation_verify(annotation_id: str, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).verify_annotation(annotation_id))
+
+
+@annotations_group.command("delete")
+@click.argument("annotation_id")
+@click.option("--cds-url", default=None)
+@click.confirmation_option(prompt="Delete this annotation?")
+def annotation_delete(annotation_id: str, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).delete_annotation(annotation_id))
+
+
+@annotations_group.command("delete-label")
+@click.option("--collection", required=True)
+@click.option("--label", required=True)
+@click.option("--cds-url", default=None)
+@click.confirmation_option(prompt="Delete all annotations with this label?")
+def annotation_delete_label(collection: str, label: str, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).delete_annotation_label(collection, label))
+
+
+@annotations_group.command("batch-by-search")
+@click.option("--collection", required=True)
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def annotation_batch_by_search(
+    collection: str, raw_json: str | None, json_file: str | None, cds_url: str | None
+) -> None:
+    _echo_json(
+        _client(cds_url).annotate_batch_by_search(
+            collection, _load_json_payload(raw_json, json_file)
+        )
+    )
+
+
+dataset_search_group.add_command(annotations_group)
+
+
+@click.group("classifiers")
+def classifiers_group() -> None:
+    """Annotation-trained classifiers."""
+
+
+@classifiers_group.command("train")
+@click.option("--collection", required=True)
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def classifier_train(
+    collection: str, raw_json: str | None, json_file: str | None, cds_url: str | None
+) -> None:
+    _echo_json(
+        _client(cds_url).train_classifier(collection, _load_json_payload(raw_json, json_file))
+    )
+
+
+@classifiers_group.command("list")
+@click.option("--collection", required=True)
+@click.option("--cds-url", default=None)
+def classifier_list(collection: str, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).list_classifiers(collection))
+
+
+@classifiers_group.command("export")
+@click.option("--collection", required=True)
+@click.option("--label", required=True)
+@click.option("--cds-url", default=None)
+def classifier_export(collection: str, label: str, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).export_classifier(collection, label))
+
+
+@classifiers_group.command("delete")
+@click.option("--collection", required=True)
+@click.option("--label", required=True)
+@click.option("--cds-url", default=None)
+@click.confirmation_option(prompt="Delete this classifier?")
+def classifier_delete(collection: str, label: str, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).delete_classifier(collection, label))
+
+
+dataset_search_group.add_command(classifiers_group)
+
+
+@click.group("datasets")
+def datasets_group() -> None:
+    """Dataset registry resources."""
+
+
+@datasets_group.command("list")
+@click.option("--cds-url", default=None)
+def datasets_list(cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).list_datasets())
+
+
+@datasets_group.command("get")
+@click.argument("dataset_id")
+@click.option("--cds-url", default=None)
+def dataset_get(dataset_id: str, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).get_dataset(dataset_id))
+
+
+@datasets_group.command("create")
+@click.option("--id", "dataset_id", default=None)
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def dataset_create(
+    dataset_id: str | None,
+    raw_json: str | None,
+    json_file: str | None,
+    cds_url: str | None,
+) -> None:
+    _echo_json(
+        _client(cds_url).create_dataset(
+            _load_json_payload(raw_json, json_file), dataset_id=dataset_id
+        )
+    )
+
+
+@datasets_group.command("update")
+@click.argument("dataset_id")
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def dataset_update(
+    dataset_id: str, raw_json: str | None, json_file: str | None, cds_url: str | None
+) -> None:
+    _echo_json(_client(cds_url).update_dataset(dataset_id, _load_json_payload(raw_json, json_file)))
+
+
+@datasets_group.command("delete")
+@click.argument("dataset_id")
+@click.option("--cds-url", default=None)
+@click.confirmation_option(prompt="Delete this dataset?")
+def dataset_delete(dataset_id: str, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).delete_dataset(dataset_id))
+
+
+dataset_search_group.add_command(datasets_group)
+
+
+@click.group("projects")
+def projects_group() -> None:
+    """Project registry and saved-result resources."""
+
+
+@projects_group.command("list")
+@click.option("--cds-url", default=None)
+def projects_list(cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).list_projects())
+
+
+@projects_group.command("get")
+@click.argument("project_id")
+@click.option("--cds-url", default=None)
+def project_get(project_id: str, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).get_project(project_id))
+
+
+@projects_group.command("create")
+@click.option("--id", "project_id", default=None)
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def project_create(
+    project_id: str | None,
+    raw_json: str | None,
+    json_file: str | None,
+    cds_url: str | None,
+) -> None:
+    _echo_json(
+        _client(cds_url).create_project(
+            _load_json_payload(raw_json, json_file), project_id=project_id
+        )
+    )
+
+
+@projects_group.command("update")
+@click.argument("project_id")
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def project_update(
+    project_id: str, raw_json: str | None, json_file: str | None, cds_url: str | None
+) -> None:
+    _echo_json(_client(cds_url).update_project(project_id, _load_json_payload(raw_json, json_file)))
+
+
+@projects_group.command("save-documents")
+@click.argument("project_id")
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def project_save_documents(
+    project_id: str, raw_json: str | None, json_file: str | None, cds_url: str | None
+) -> None:
+    _echo_json(
+        _client(cds_url).save_project_documents(project_id, _load_json_payload(raw_json, json_file))
+    )
+
+
+@projects_group.command("export")
+@click.argument("project_id")
+@click.option("--output", required=True, type=click.Path(dir_okay=False, writable=True))
+@click.option("--cds-url", default=None)
+def project_export(project_id: str, output: str, cds_url: str | None) -> None:
+    content = _client(cds_url).export_project_csv(project_id)
+    Path(output).write_bytes(content)
+    _echo_json({"project_id": project_id, "output": output, "bytes": len(content)})
+
+
+@projects_group.command("delete")
+@click.argument("project_id")
+@click.option("--cds-url", default=None)
+@click.confirmation_option(prompt="Delete this project?")
+def project_delete(project_id: str, cds_url: str | None) -> None:
+    _echo_json(_client(cds_url).delete_project(project_id))
+
+
+dataset_search_group.add_command(projects_group)
+
+
+@dataset_search_group.command("linear-probe")
+@click.option("--json", "raw_json", default=None)
+@click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
+@click.option("--cds-url", default=None)
+def linear_probe(raw_json: str | None, json_file: str | None, cds_url: str | None) -> None:
+    """Invoke /linear_probe for deprecated compatibility coverage."""
+    _echo_json(_client(cds_url).linear_probe(_load_json_payload(raw_json, json_file)))
+
+
+@dataset_search_group.command("metrics")
+@click.option("--cds-url", default=None)
+def metrics(cds_url: str | None) -> None:
+    """Print root /metrics Prometheus text."""
+    _echo_bytes(_client(cds_url).metrics())
+
+
+@dataset_search_group.command("cds-metrics")
+@click.option("--cds-url", default=None)
+def cds_metrics(cds_url: str | None) -> None:
+    """Print root /cds_metrics Prometheus text."""
+    _echo_bytes(_client(cds_url).cds_metrics())
 
 
 @dataset_search_group.command("train-refinement")

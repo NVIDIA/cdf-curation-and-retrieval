@@ -1,12 +1,13 @@
-# Physical AI Data Factory — Curation and Retrieval
+# Cosmos Data Factory — Curation and Retrieval
 
-**Product / repo:** `paidf-curation-and-retrieval`
+**Product / repo:** `cdf-curation-and-retrieval`
 
-Glue and operator environment for PAIDF Curation and Retrieval. Pipeline
+Integration and operator environment for CDF Curation and Retrieval. Pipeline
 logic stays in vendor images (Cosmos Curator and Data Mining). This
 repository exposes **Make** as the supported local operator UX.
-The installed `paidf` CLI is a non-interactive helper for Make targets,
-orchestrators, and tests; do not present it as a separate public product UX.
+The installed `cdf_curation_and_retrieval` CLI is a non-interactive helper for
+Make targets, orchestrators, and tests; do not present it as a separate public
+product UX.
 
 ## Project Layout
 
@@ -17,9 +18,9 @@ apps/                      Click delivery, workflow modules, composition root
 packages/                  Domain types, ports, analytics
 configs/                   Full Curator reference YAMLs (split, dedup, shard, image)
 cookbook/                  Scenario recipes
-docs/                      Operator user-guide, architecture, PLC artifacts
+docs/                      Operator user-guide and architecture
 skills/                    Agent skills (SKILL.md per skill)
-tests/unit/                Glue unit tests
+tests/unit/                Unit tests
 .external/                 Ignored optional upstream source checkouts
 ```
 
@@ -72,15 +73,16 @@ Default Curator / Data Mining / CDS image pins: root `Makefile`
 Make targets call the installed helper:
 
 ```bash
-uv run paidf ...
+uv run cdf_curation_and_retrieval ...
 ```
 
 Canonical helper groups are:
 
-- `paidf integration ...` for finite TAO Data Services image-embedding
-  handoffs.
+- `cdf_curation_and_retrieval integration ...` for finite TAO Data Services
+  image-embedding handoffs.
 
-Keep operator documentation Make-first. Use direct `paidf` commands only for
+Keep operator documentation Make-first. Use direct `cdf_curation_and_retrieval`
+commands only for
 automation, tests, or orchestration contracts.
 
 ## Development
@@ -99,7 +101,7 @@ uv run pytest tests/unit -q
 ## Configuration
 
 **Curator:** prefer flat YAML with `snake_case` keys matching upstream argparse
-`dest` names. PAIDF preflight also accepts a nested `args` mapping and flattens
+`dest` names. CDF preflight also accepts a nested `args` mapping and flattens
 it before invoking Curator. Upstream fills omitted keys from parser defaults.
 
 Templates in `configs/`: `split.yaml`, `dedup.yaml`, `shard.yaml`, `image.yaml`.
@@ -126,7 +128,7 @@ disclosure via `references/` subdirectories.
 
 | Skill | Purpose |
 |-------|---------|
-| `paidf-curation-and-retrieval` | Cosmos Curator split / dedup / shard / image annotate: configure, run, troubleshoot, KPI and distribution-aware curation |
+| `cdf-curation-and-retrieval` | Cosmos Curator split / dedup / shard / image annotate: configure, run, troubleshoot, KPI and distribution-aware curation |
 
 Scope notes:
 - Data Mining ops are covered by `make help` / cookbooks, not by
@@ -145,6 +147,6 @@ incident analytics, logistics, and workplace visual safety.
 - Never hardcode machine-specific paths in config YAMLs; use placeholders.
 - Commit messages follow conventional commits (`feat:`, `fix:`, `chore:`,
   `docs:`).
-- Operator UX is Make-first; keep `paidf` documented as an internal automation
-  helper, not a separate public UX.
+- Operator UX is Make-first; keep `cdf_curation_and_retrieval` documented as an
+  internal automation helper, not a separate public UX.
 - Never commit secrets, `local.env`, or private registry hosts.

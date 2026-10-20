@@ -20,17 +20,23 @@ from packages.domain.types import (
 )
 
 
+def _query_modality_count(query: SearchQuery) -> int:
+    return sum(
+        bool(value)
+        for value in (
+            query.text is not None,
+            query.embedding is not None,
+            query.image is not None or query.image_path is not None,
+            query.video is not None,
+            query.video_frames is not None,
+            query.session_segment is not None,
+        )
+    )
+
+
 def query_payload(query: SearchQuery) -> dict[str, Any]:
-    """Map SearchQuery modalities to a CVDS QueryType object."""
-    modalities = [
-        query.text is not None,
-        query.embedding is not None,
-        query.image is not None or query.image_path is not None,
-        query.video is not None,
-        query.video_frames is not None,
-        query.session_segment is not None,
-    ]
-    if sum(bool(m) for m in modalities) != 1:
+    """Map SearchQuery modalities to a CDS QueryType object."""
+    if _query_modality_count(query) != 1:
         raise ValueError(
             "SearchQuery requires exactly one of: text, embedding, image/image_path, "
             "video, video_frames, or session_segment"
@@ -67,20 +73,45 @@ def query_payload(query: SearchQuery) -> dict[str, Any]:
 
 def search_request_body(query: SearchQuery) -> dict[str, Any]:
     """Map a domain search query to a Dataset Search request body."""
+    modality_count = _query_modality_count(query)
+    has_caption_query = bool(query.caption_query) and bool(str(query.caption_query).strip())
+    if modality_count == 0 and not has_caption_query:
+        raise ValueError(
+            "SearchQuery requires exactly one modality, or caption_query for caption-only search"
+        )
+    if modality_count > 1:
+        query_payload(query)
     body: dict[str, Any] = {
-        "query": [query_payload(query)],
         "top_k": query.top_k,
         "reconstruct": query.reconstruct,
         "generate_asset_url": query.generate_asset_url,
     }
+    if modality_count == 1:
+        body["query"] = [query_payload(query)]
     if query.filters:
         body["filters"] = (
             dict(query.filters) if isinstance(query.filters, Mapping) else query.filters
         )
     if query.search_params:
         body["search_params"] = dict(query.search_params)
+    if query.annotation_labels:
+        body["annotation_labels"] = list(query.annotation_labels)
+    if query.exclude_annotation_labels:
+        body["exclude_annotation_labels"] = list(query.exclude_annotation_labels)
+    if query.project_source:
+        body["project_source"] = list(query.project_source)
     if query.clf:
         body["clf"] = dict(query.clf)
+    if has_caption_query:
+        body["caption_query"] = query.caption_query
+    if query.auto_rewrite is not None:
+        body["auto_rewrite"] = query.auto_rewrite
+    if query.caption_extra_queries is not None:
+        body["caption_extra_queries"] = list(query.caption_extra_queries)
+    if query.classifier_label:
+        body["classifier_label"] = query.classifier_label
+    if query.probability_expression:
+        body["probability_expression"] = query.probability_expression
     return body
 
 

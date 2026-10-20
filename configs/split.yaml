@@ -66,7 +66,7 @@ generate_captions: true                      # --no-generate-captions sets false
 upload_clips: true                           # --no-upload-clips sets false
 upload_clip_info_in_lance: false             # --upload-clip-info-in-lance
 upload_clip_info_in_chunks: false            # --upload-clip-info-in-chunks
-upload_cds_parquet: false                    # --upload-cvds-parquet / --upload-cds-parquet
+upload_cds_parquet: false                    # --upload-cds-parquet
 generate_cosmos_predict_dataset: "disable"   # --generate-cosmos-predict-dataset [disable, predict2]
 write_all_caption_json: true                 # --no-write-all-caption-json sets false
 

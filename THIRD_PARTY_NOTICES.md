@@ -1,7 +1,7 @@
 Third Party Notice
 =================
 
-Generated for paidf-curation-and-retrieval dependencies from uv.lock
+Generated for cdf-curation-and-retrieval dependencies from uv.lock
 and pyproject.toml. Source: package metadata via pip-licenses (mixed).
 Does not include third-party code inside pulled Docker images
 (Cosmos Curator and TAO Data Services).
@@ -57,8 +57,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
-Package: click (Version: 8.1.8)
-License: BSD License
+Package: click (Version: 8.5.0)
+License: BSD-3-Clause
 License Text:
 Copyright 2014 Pallets
 
@@ -8070,7 +8070,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 
-Package: urllib3 (Version: 2.7.0)
+Package: urllib3 (Version: 2.8.0)
 License: MIT
 License Text:
 MIT License

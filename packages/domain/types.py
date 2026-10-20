@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared domain types for the PAIDF integration layer.
+"""Shared domain types for the CDF integration layer.
 
 These types are the contract between Dataset Search (online retrieval) and
 Data Mining (offline analytics). Adapters map to/from each engine's native schemas.
@@ -36,7 +36,7 @@ class CollectionInfo:
 
 @dataclass(frozen=True)
 class CollectionCreateSpec:
-    """Payload to create a Dataset Search collection (CVDS CollectionCreate)."""
+    """Payload to create a Dataset Search collection (CDS CollectionCreate)."""
 
     name: str
     pipeline: str
@@ -92,11 +92,11 @@ class SearchHit:
 
 @dataclass(frozen=True)
 class SearchQuery:
-    """Multimodal query against Dataset Search (CVDS SearchRequest).
+    """Multimodal query against Dataset Search (CDS SearchRequest).
 
     Provide exactly one modality: text, embedding, image/image_path, video,
     video_frames, or session_segment. ``image_path`` is kept for backward
-    compatibility and maps to CVDS ``ImageQuery.image``.
+    compatibility and maps to CDS ``ImageQuery.image``.
     """
 
     text: str | None = None
@@ -110,15 +110,23 @@ class SearchQuery:
     filters: Mapping[str, Any] | str = field(default_factory=dict)
     reconstruct: bool = False
     search_params: Mapping[str, Any] = field(default_factory=dict)
-    # CVDS defaults True, but that requires collection storage-secrets tags.
+    # CDS defaults True, but that requires collection storage-secrets tags.
     # Integration default False avoids local failures without S3 wiring.
     generate_asset_url: bool = False
+    annotation_labels: Sequence[str] = field(default_factory=tuple)
+    exclude_annotation_labels: Sequence[str] = field(default_factory=tuple)
+    project_source: Sequence[str] = field(default_factory=tuple)
     clf: Mapping[str, Any] = field(default_factory=dict)
+    caption_query: str | None = None
+    auto_rewrite: bool | None = None
+    caption_extra_queries: Sequence[str] | None = None
+    classifier_label: str | None = None
+    probability_expression: str | None = None
 
 
 @dataclass(frozen=True)
 class MultiCollectionQuery:
-    """Multi-collection retrieval (CVDS POST /retrieval)."""
+    """Multi-collection retrieval (CDS POST /retrieval)."""
 
     collection_ids: Sequence[str]
     query: SearchQuery
@@ -150,7 +158,7 @@ class DocumentInfo:
 
 @dataclass(frozen=True)
 class BulkInsertRequest:
-    """Bulk parquet ingest (CVDS POST /insert-data)."""
+    """Bulk parquet ingest (CDS POST /insert-data)."""
 
     collection_name: str
     parquet_paths: Sequence[str]
@@ -183,7 +191,7 @@ class LabelledDocuments:
 
 @dataclass(frozen=True)
 class SearchRefinementSpec:
-    """Train a search-refinement model (CVDS POST /search_refinement/train)."""
+    """Train a search-refinement model (CDS POST /search_refinement/train)."""
 
     grounding_queries: Sequence[SearchQuery]
     labels: Sequence[LabelledDocuments]
