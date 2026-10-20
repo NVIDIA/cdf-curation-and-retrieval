@@ -117,12 +117,12 @@ make stage-cds-artifact \
   OBJECT_STORE_ENDPOINT=https://objects.example
 
 make ds-bulk-insert \
-  COLLECTION=traffic \
+  COLLECTION=<id-from-create> \
   PARQUET_URI=s3://bucket/cds-ce1.parquet \
   CDS_EMBEDDING_FAMILY=ce1
 
 make ds-job-status JOB_ID=<job-id> WAIT=1
-make search COLLECTION=traffic QUERY='pedestrian crossing the road'
+make search COLLECTION=<id-from-create> QUERY='pedestrian crossing the road'
 ```
 
 `ingest-curator` in convert-only mode validates the export while creating the

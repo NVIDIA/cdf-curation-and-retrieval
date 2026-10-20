@@ -12,7 +12,7 @@ description: >-
 license: CC-BY-4.0 AND Apache-2.0
 owner: NVIDIA
 service: cosmos-data-factory
-reviewed: 2026-09-14
+reviewed: 2026-10-20
 metadata:
   author: "NVIDIA <opensource@nvidia.com>"
   version: 1.2.0

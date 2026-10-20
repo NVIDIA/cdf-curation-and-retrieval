@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 CC-BY-4.0 AND Apache 2.0 <br>
 ## Use Case: <br>
-Developers, ML/data engineers, and operators (internal and external) use this skill to turn raw video and image collections into curated, training-ready physical AI datasets by configuring, validating, and running Cosmos Curator pipelines, KPI-driven and distribution-aware curation, Cosmos Dataset Search ingest/search, and TAO data mining handoffs through the repository's Make targets. Workplace employee conduct monitoring catalogs require confirmed legal review, a lawful basis, and any required worker notice before use. <br>
+Developers, ML/data engineers, and operators use this skill to turn raw video and image collections into curated, training-ready physical AI datasets by configuring, validating, and running Cosmos Curator pipelines (including KPI-driven, distribution-aware, and restrictive curation), Cosmos Dataset Search ingest and search, and TAO data mining handoffs through the repository's Make targets. Workplace employee conduct monitoring catalogs require confirmed legal review, a lawful basis, and any required worker notice before use. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>
@@ -59,7 +59,7 @@ Mitigation: Review and scan skill before deployment. <br>
 
 
 ## Evaluation Tasks: <br>
-13 positive evaluation tasks (dataset digest `sha256:fdcbcab3028d167dee02acf67b997dfc3fa3f6fb481a0a536d92378a5b28acaf`), one attempt per task, each run in an isolated `k8s-sandbox` pod and compared against a no-skill baseline; evaluated 2026-10-20 with evaluator version `1.5.6`. Overall verdict: PASS. <br>
+13 evaluation tasks (13 positive), 1 attempt per task, each run in an isolated sandbox pod (`k8s-sandbox`), compared against a no-skill baseline; evaluator version `1.5.6`, evaluated 2026-10-20. <br>
 
 ## Evaluation Metrics Used: <br>
 Reported benchmark dimensions: <br>
@@ -83,12 +83,12 @@ Underlying evaluation signals used in this run: <br>
 ## Evaluation Results: <br>
 | Measure | Claude Code (Baseline → Skill Uplift) | Codex (Baseline → Skill Uplift) |
 |---|---:|---:|
-| Overall | 91.8% — baseline ran, but no comparable score was available; uplift unavailable | 85.1% — baseline ran, but no comparable score was available; uplift unavailable |
-| Security | 84.6% → 100.0% (+15.4 points) | 96.2% → 96.2% (±0.0 points) |
-| Correctness | 46.2% → 100.0% (+53.8 points) | 60.0% → 92.3% (+32.3 points) |
-| Discoverability | 86.9% — baseline ran, but no comparable score was available; uplift unavailable | 67.3% — baseline ran, but no comparable score was available; uplift unavailable |
-| Effectiveness | 48.3% → 88.4% (+40.1 points) | 42.9% → 77.7% (+34.8 points) |
-| Efficiency | 83.7% — baseline ran, but no comparable score was available; uplift unavailable | 92.2% — baseline ran, but no comparable score was available; uplift unavailable |
+| Overall | 93.1% — baseline ran, but no comparable score was available; uplift unavailable | 87.0% — baseline ran, but no comparable score was available; uplift unavailable |
+| Security | 92.3% → 100.0% (+7.7 points) | 100.0% → 100.0% (±0.0 points) |
+| Correctness | 43.1% → 100.0% (+56.9 points) | 49.2% → 90.8% (+41.6 points) |
+| Discoverability | 83.5% — baseline ran, but no comparable score was available; uplift unavailable | 70.8% — baseline ran, but no comparable score was available; uplift unavailable |
+| Effectiveness | 45.7% → 93.1% (+47.4 points) | 39.5% → 78.7% (+39.2 points) |
+| Efficiency | 88.9% — baseline ran, but no comparable score was available; uplift unavailable | 94.8% — baseline ran, but no comparable score was available; uplift unavailable |
 
 ## Skill Version(s): <br>
 1.2.0 (source: frontmatter, pyproject.toml) <br>

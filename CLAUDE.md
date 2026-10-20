@@ -5,8 +5,9 @@
 Integration and operator environment for CDF Curation and Retrieval. Pipeline
 logic stays in vendor images (Cosmos Curator and Data Mining). This
 repository exposes **Make** as the supported local operator UX.
-The installed `cdf` CLI is a non-interactive helper for Make targets,
-orchestrators, and tests; do not present it as a separate public product UX.
+The installed `cdf_curation_and_retrieval` CLI is a non-interactive helper for
+Make targets, orchestrators, and tests; do not present it as a separate public
+product UX.
 
 ## Project Layout
 
@@ -72,15 +73,16 @@ Default Curator / Data Mining / CDS image pins: root `Makefile`
 Make targets call the installed helper:
 
 ```bash
-uv run cdf ...
+uv run cdf_curation_and_retrieval ...
 ```
 
 Canonical helper groups are:
 
-- `cdf integration ...` for finite TAO Data Services image-embedding
-  handoffs.
+- `cdf_curation_and_retrieval integration ...` for finite TAO Data Services
+  image-embedding handoffs.
 
-Keep operator documentation Make-first. Use direct `cdf` commands only for
+Keep operator documentation Make-first. Use direct `cdf_curation_and_retrieval`
+commands only for
 automation, tests, or orchestration contracts.
 
 ## Development
@@ -145,6 +147,6 @@ incident analytics, logistics, and workplace visual safety.
 - Never hardcode machine-specific paths in config YAMLs; use placeholders.
 - Commit messages follow conventional commits (`feat:`, `fix:`, `chore:`,
   `docs:`).
-- Operator UX is Make-first; keep `cdf` documented as an internal automation
-  helper, not a separate public UX.
+- Operator UX is Make-first; keep `cdf_curation_and_retrieval` documented as an
+  internal automation helper, not a separate public UX.
 - Never commit secrets, `local.env`, or private registry hosts.

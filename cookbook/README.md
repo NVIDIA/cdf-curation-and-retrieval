@@ -8,7 +8,8 @@ recipes cover Cosmos Curator and Data Mining.
 
 Human overview + diagram: repo [`README.md`](../README.md). There is no shared
 scheduler or cross-step state in this repository; the `apps.workflows`
-package owns behavior-preserving handoff logic used by Make / `cdf`. Validate
+package owns behavior-preserving handoff logic used by Make and the
+`cdf_curation_and_retrieval` helper. Validate
 with `uv run pytest tests/unit`.
 
 ## How to Run
