@@ -1,8 +1,8 @@
 # Curation and Retrieval Workflow — Curator → CDS → Data Mining
 
 Concise cross-product map for Curator, Cosmos Dataset Search (CDS), and Data
-Mining. In DCR v1.2, adapter and integration code provide invocation coverage
-for the CDS GA core, but live deployment acceptance remains separate. There is no shared
+Mining. In Curation and Retrieval 1.2, adapter and integration code provide
+invocation coverage for the CDS GA core, but live deployment acceptance remains separate. There is no shared
 orchestrator, scheduler, or cross-step workflow state. Make is the local
 operator façade; external automation uses the equivalent CLI/container/API
 contracts.

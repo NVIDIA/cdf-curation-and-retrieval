@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dataset Search retrieval adapter — HTTP client over the CVDS / CDS API.
+"""Dataset Search retrieval adapter — HTTP client over the CDS API.
 
-Exposes the full standalone Dataset Search (CVDS) surface used by CDF:
+Exposes the full standalone Dataset Search (CDS) surface used by CDF:
 
 - Collections CRUD + admin flush
 - Pipelines list / draw
@@ -122,7 +122,7 @@ def _is_unreadable_parquet_error(response: requests.Response) -> bool:
 
 
 class DatasetSearchAdapter:
-    """Full CVDS client implementing retrieval, collection admin, ingest, and refinement."""
+    """Full CDS client implementing retrieval, collection admin, ingest, and refinement."""
 
     def __init__(self, base_url: str, session: requests.Session | None = None) -> None:
         self._base_url = normalize_cds_base_url(base_url)
@@ -393,7 +393,7 @@ class DatasetSearchAdapter:
     def export_embeddings(self, collection: CollectionRef) -> Sequence[EmbeddingRecord]:
         """Best-effort export via document listing if the deployment exposes it.
 
-        Standalone CVDS does not guarantee a documents GET list; callers should
+        Standalone CDS does not guarantee a documents GET list; callers should
         prefer reconstruct=True search or parquet export when available.
         """
         if not collection.collection_id:

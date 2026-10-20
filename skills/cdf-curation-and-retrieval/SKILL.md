@@ -326,13 +326,13 @@ in-repo E2E or L1 harness. See
 
 - Requires NVIDIA GPU(s); pipelines are not CPU-only. SHM is bounded by host RAM.
 - Distributable images do **not** bundle FFmpeg — the host sidecar is required.
-- Emit configs as flat `snake_case` YAML. CDF v1.2 validation also accepts
-  legacy Curator parameters nested under `args` for compatibility before
-  normalizing to the Docker runner.
+- Emit configs as flat `snake_case` YAML. Curation and Retrieval 1.2
+  validation also accepts legacy Curator parameters nested under `args` for
+  compatibility before normalizing to the Docker runner.
 - Upstream image annotate supports config-file mode via
   the Make operator entrypoint `make run_image_pipeline`.
-- CDS guidance in this skill covers DCR v1.2 invocation surfaces.
-  Live CDS deployment, NIMs, storage
+- CDS guidance in this skill covers Curation and Retrieval 1.2 invocation
+  surfaces. Live CDS deployment, NIMs, storage
   secrets, and acceptance remain external to this repository.
 - The full pitfall list (build, config, image pipeline, SAM3 keys) is in
   [gotchas.md](references/gotchas.md).

@@ -4,9 +4,9 @@ Task-oriented reference for public GA CDS bring-up and CE1 ingest/search.
 Make is the local operator façade; agents and orchestrators should invoke the equivalent
 installed `cdf_curation_and_retrieval` CLI.
 
-In DCR v1.2, the adapter, CLI, Make targets, and handoff docs provide
-invocation coverage for the GA CDS core. This is not a substitute
-for live CDS deployment acceptance.
+In Curation and Retrieval 1.2, the adapter, CLI, Make targets, and handoff
+docs provide invocation coverage for the GA CDS core. This is not a
+substitute for live CDS deployment acceptance.
 
 ## Hardware constraint
 

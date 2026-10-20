@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Dataset Search (CVDS) CLI commands — full standalone retrieval surface."""
+"""Dataset Search (CDS) CLI commands — full standalone retrieval surface."""
 
 from __future__ import annotations
 
@@ -71,7 +71,7 @@ def _credential_values(access_key_env: str, secret_key_env: str) -> tuple[str | 
 
 @click.group("ds")
 def dataset_search_group() -> None:
-    """Dataset Search (CVDS) — collections, search, ingest, jobs, refinement."""
+    """Dataset Search (CDS) — collections, search, ingest, jobs, refinement."""
 
 
 @dataset_search_group.command("health")

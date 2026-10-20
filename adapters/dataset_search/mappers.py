@@ -35,7 +35,7 @@ def _query_modality_count(query: SearchQuery) -> int:
 
 
 def query_payload(query: SearchQuery) -> dict[str, Any]:
-    """Map SearchQuery modalities to a CVDS QueryType object."""
+    """Map SearchQuery modalities to a CDS QueryType object."""
     if _query_modality_count(query) != 1:
         raise ValueError(
             "SearchQuery requires exactly one of: text, embedding, image/image_path, "

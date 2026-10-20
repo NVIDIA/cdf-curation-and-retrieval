@@ -35,7 +35,7 @@ from packages.domain.types import (
 
 
 class RetrievalPort(Protocol):
-    """Online search (owned by Dataset Search / CVDS)."""
+    """Online search (owned by Dataset Search)."""
 
     def search(self, collection: CollectionRef, query: SearchQuery) -> Sequence[SearchHit]:
         """Run multimodal search; maps to POST /collections/{id}/search."""
@@ -48,7 +48,7 @@ class RetrievalPort(Protocol):
 
 
 class CollectionAdminPort(Protocol):
-    """Collection CRUD and admin flush (CVDS collections + milvus_admin)."""
+    """Collection CRUD and admin flush (CDS collections + milvus_admin)."""
 
     def list_collections(self) -> Sequence[CollectionInfo]:
         """GET /collections."""
@@ -70,7 +70,7 @@ class CollectionAdminPort(Protocol):
 
 
 class PipelinePort(Protocol):
-    """Pipeline discovery (CVDS pipelines API)."""
+    """Pipeline discovery (CDS pipelines API)."""
 
     def list_pipelines(self) -> Sequence[PipelineInfo]:
         """GET /pipelines."""
@@ -116,7 +116,7 @@ class IngestPort(Protocol):
 
 
 class SearchRefinementPort(Protocol):
-    """Search refinement training (CVDS /search_refinement/train)."""
+    """Search refinement training (CDS /search_refinement/train)."""
 
     def train_search_refinement(self, spec: SearchRefinementSpec) -> SearchRefinementResult:
         """POST /search_refinement/train."""
