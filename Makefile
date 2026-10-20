@@ -53,18 +53,18 @@ COSMOS_CURATOR_TAG ?= 2.3.0
 COSMOS_CURATOR_IMAGE ?= cosmos-curator
 # CDS runtime profile selects the Dataset Search pins below.
 #   public     = NGC GA (OSS default)
-#   internal   = entitled EA (pins in gitignored local.env)
+#   internal   = separately supplied images (pins in gitignored local.env)
 CDS_PROFILE ?= public
 
 ifeq ($(CDS_PROFILE),public)
 # Assigned, not defaulted: public is the OSS path and must always resolve to NGC GA images. With `?=` an
-# EA pin left in .env / local.env silently retargets it, because
+# internal pin left in .env / local.env silently retargets it, because
 # both files are included before these defaults. Command-line overrides still
 # win, so `make ... DATASET_SEARCH_TAG=x` keeps working.
 DATASET_SEARCH_REGISTRY = nvcr.io/nvidia/blueprint/cosmos-dataset-search
 DATASET_SEARCH_TAG = 1.2.0
 COSMOS_EMBED_IMAGE = nvcr.io/nvidia/blueprint/cosmos-embed1-oss:1.2.0
-# Entitled EA pins. No public host is entitled to them and the public compose
+# Internal-profile pins. Public hosts cannot pull them and the public compose
 # files never start them, so a stale pin must not reach the extras pull.
 CDS_POSTGRES_IMAGE =
 CAPTION_EMBED_NIM_IMAGE =
@@ -79,7 +79,7 @@ DATA_MINING_TAG ?= 7.2.0-data-services
 DATA_MINING_IMAGE ?= tao-toolkit
 # Query-time embed service (NGC). CDS 1.2.0 publishes CE1 OSS as a container;
 # it replaces the nvcr.io/nim/nvidia/cosmos-embed1 NIM used before 1.2.0.
-# Caption NIM / C-Radio / cds-postgres are entitled pins — set the full image
+# Caption NIM / C-Radio / cds-postgres are internal-profile pins — set the full image
 # refs in gitignored local.env.
 COSMOS_EMBED_IMAGE ?= nvcr.io/nvidia/blueprint/cosmos-embed1-oss:1.2.0
 COSMOS_EMBED_MODELS_DIR ?=
@@ -386,7 +386,7 @@ help:
 	@echo "  make caption-build         CAPTION_JSON=... CAPTION_PARQUET=..."
 	@echo "  make caption-validate      CAPTION_PARQUET=... [INDEXED_ID_FILE=...]"
 	@echo "  make caption-readiness     PIPELINE=... CDS_PROFILE=internal CDS_URL=..."
-	@echo "  make caption-stats         EA GET /captions/stats"
+	@echo "  make caption-stats         GET /captions/stats"
 	@echo "  make caption-get           CAPTION_CLIP_ID=..."
 	@echo "  make caption-rewrite       CAPTION_QUERY='...'"
 	@echo "  make caption-search        CAPTION_QUERY='...' [CAPTION_SEARCH_LIMIT=5000]"
@@ -719,7 +719,7 @@ pull-dataset-search:
 		echo "  DATASET_SEARCH_TAG=1.2.0"; \
 		echo "  DATASET_SEARCH_IMAGE=cosmos-dataset-search"; \
 		echo ""; \
-		echo "Internal EA: CDS_PROFILE=internal + private/local tag (gitignored local.env)."; \
+		echo "Internal profile: CDS_PROFILE=internal + private/local tag (gitignored local.env)."; \
 		echo "Then re-run: make pull-dataset-search"; \
 		echo ""; \
 		exit 1; \

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Focused HTTP adapter for CDS EA external-caption ingestion."""
+"""Focused HTTP adapter for CDS external-caption ingestion."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ class CaptionCapabilityError(RuntimeError):
 
 
 class CaptionAdapter:
-    """Call the verified EA caption ingestion and keyword-search contracts."""
+    """Call the verified caption ingestion and keyword-search contracts."""
 
     def __init__(self, base_url: str, session: requests.Session | None = None) -> None:
         self._base_url = normalize_cds_base_url(base_url)
@@ -34,7 +34,7 @@ class CaptionAdapter:
             )
         if response.status_code == 503:
             raise CaptionCapabilityError(
-                f"CDS caption {operation} is unavailable: the EA caption store is not configured"
+                f"CDS caption {operation} is unavailable: the caption store is not configured"
             )
         response.raise_for_status()
 

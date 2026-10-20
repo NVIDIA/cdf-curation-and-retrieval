@@ -12,10 +12,6 @@ Overall **Cosmos Data Factory Curation and Retrieval** architecture
 
 ![CDF Curation and Retrieval Architecture](../assets/CDF-CC-CDS-TDM.png)
 
-Curator + Data Mining only (no Dataset Search):
-
-![CDF Curator and Data Mining Architecture](../assets/CDF_CC_and_TDM.png)
-
 Cosmos Curator video/image curation pipeline only (split, caption, embed,
 dedup, shard):
 
@@ -57,9 +53,51 @@ There is no shared scheduler or cross-step state in this repository. Operators
 Compose; anywhere else CDS is a prerequisite endpoint deployed from its own
 repository and reached through `CDS_URL`.
 
-Clean-architecture detail:
-[cdf-clean-architecture.md](../architecture/cdf-clean-architecture.md).
+## Code layers
 
+Dependency direction inside this repository. Make is the operator
+interface; everything below it is contributor detail.
+
+```mermaid
+flowchart TB
+  make["Make targets\npublic operator interface"]
+  cdf["helper CLI\napps/cli, called by Make"]
+  composition["apps/composition.py\nadapter and runner factories"]
+  workflows["apps/workflows\ncurator | mining | embeddings"]
+  ports["packages/ports\nexternal-boundary protocols"]
+  domain["packages/domain\nshared data shapes"]
+  analytics["packages/analytics\nin-process algorithms"]
+  adapters["adapters\nCurator | Data Mining | Dataset Search | Docker runtime"]
+  runtimes["product runtimes\nCosmos Curator | TAO DS / TMM | CDS"]
+
+  make --> cdf
+  cdf --> composition
+  cdf --> workflows
+  composition --> adapters
+  workflows --> ports
+  workflows --> domain
+  workflows --> analytics
+  ports --> adapters
+  adapters --> runtimes
+```
+
+How the helper CLI wires a single command:
+
+```mermaid
+flowchart LR
+  cli["apps/cli\nClick parsing | env defaults | JSON/error presentation"]
+  workflow["apps/workflows\nvalidation order | handoff policy | JSON-ready payloads"]
+  compose["apps/composition.py\nconstructs collaborators"]
+  port["packages/ports\nprotocols"]
+  adapter["adapters\nHTTP | Docker | parquet | object store"]
+  runtime["external runtimes\npulled images and deployed services"]
+
+  cli --> workflow
+  cli --> compose
+  workflow --> port
+  compose --> adapter
+  adapter --> runtime
+```
 
 ## Product engines
 

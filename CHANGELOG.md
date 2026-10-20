@@ -16,14 +16,13 @@ shippable operator surface for this repository. That commit was originally
 published under the incorrect tag name `v0.3.0` (now removed). Changes below
 for `[1.1.0]` are relative to `v1.0.0`, not to the interim pyproject `1.0.0`
 string that appeared later without a matching git tag. Changes for `[1.2.0]`
-are everything that differs from branch
-`dev/mjafaritadi/v.1.1.0-documentation`.
+are relative to git tag `v1.1.0`.
 
 ## [1.2.0] — 2026-10-20
 
 Target product cut after `1.1.0`. Scope is the full delta versus
-`dev/mjafaritadi/v.1.1.0-documentation` (committed Path D / CDS work plus
-the PhysicalAI-AV cookbook). Glue `pyproject.toml` is `1.2.0`.
+git tag `v1.1.0` (Path D / CDS work plus the PhysicalAI-AV cookbook). Glue
+`pyproject.toml` is `1.2.0`.
 
 ### Added
 
@@ -34,9 +33,9 @@ the PhysicalAI-AV cookbook). Glue `pyproject.toml` is `1.2.0`.
 - Dataset Search glue: `adapters/dataset_search/`,
   `apps/cli/dataset_search_cmds.py`, `apps/workflows/dataset_search.py`.
 - Local compose stack for Path D (`deploy/compose/`) with a public GA
-  profile and an optional EA overlay (`docker-compose.ea.yml`,
-  `CDS_PROFILE=internal`) that starts caption Postgres. After ingest,
-  search with `make search`.
+  profile and an `internal` profile (`CDS_PROFILE=internal`) whose image
+  pins live in a gitignored `local.env`. After ingest, search with
+  `make search`.
 - Lab document ingest (`ALLOW_LAB_DOCUMENT_FALLBACK=1`) as the supported
   local-compose smoke path; GA bulk ingest (`PARQUET_URI=s3://…`)
   documented separately.
@@ -88,12 +87,10 @@ the PhysicalAI-AV cookbook). Glue `pyproject.toml` is `1.2.0`.
   Path D operation takes `--cds-url` and `make ds-health` confirms it.
 - Caption keyword FTS on local compose is incomplete (missing
   `pg_textsearch` / `search_vector`; empty-result LRU cache).
-- CDS GA/EA product claims remain subject to design approval.
 
 ## [1.1.0] — 2026-08
 
-Product surface on `dev/mjafaritadi/v.1.1.0-documentation` compared to
-git tag `v1.0.0`.
+Changes relative to git tag `v1.0.0`.
 
 ### Added
 
@@ -101,7 +98,7 @@ git tag `v1.0.0`.
   (`cdf-curation-and-retrieval`), with Make-only operator UX and pull-first
   NGC runtime images (Cosmos Curator `2.3.0`, TAO DS
   `nvcr.io/nvidia/tao/tao-toolkit:7.2.0-data-services`).
-- Clean-architecture glue: `packages/`, `adapters/`, `apps/` (Make invokes an
+- Layered code layout: `packages/`, `adapters/`, `apps/` (Make invokes an
   internal CLI; no second public CLI).
 - Curator config-file pipelines: `configs/split.yaml`, `dedup.yaml`,
   `shard.yaml`, `image.yaml`; `make run-pipeline`, `make run_image_pipeline`,

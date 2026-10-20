@@ -81,7 +81,7 @@ __all__ = [
 ]
 
 # Builds disagree on how they reject a parquet path they cannot read. 1.0.0 and
-# the prerelease resolve the collection and open the file first, so a host path
+# pre-1.2.0 builds resolve the collection and open the file first, so a host path
 # the container cannot see comes back 404 ("File not found" / "Collection not
 # found"); they only reach 400 "Invalid S3 path format" when the file is
 # readable but is not an s3:// URI. 1.2.0 validates up front instead and returns
@@ -675,7 +675,7 @@ class DatasetSearchAdapter:
             )
         return result
 
-    # ------------------------------------------------------------ EA captions
+    # --------------------------------------------------------------- captions
 
     def add_caption(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
         """POST /captions/ for one caption row."""
@@ -700,7 +700,7 @@ class DatasetSearchAdapter:
         data_sources: Sequence[str] | None = None,
         extra_queries: Sequence[str] | None = None,
     ) -> Mapping[str, Any]:
-        """POST /captions/search for EA caption keyword search."""
+        """POST /captions/search for caption keyword search."""
         if not query:
             raise ValueError("query is required")
         payload: dict[str, Any] = {"query": query, "limit": limit}
@@ -733,7 +733,7 @@ class DatasetSearchAdapter:
         body = self._request("GET", "/captions/rewrite/status", timeout=60)
         return dict(body) if isinstance(body, dict) else {"result": body}
 
-    # ---------------------------------------------------------- EA annotations
+    # ------------------------------------------------------------- annotations
 
     def list_annotations(
         self,
@@ -828,7 +828,7 @@ class DatasetSearchAdapter:
             f"/collections/{collection_id}/annotations/batch-by-search", payload
         )
 
-    # ----------------------------------------------------------- EA classifiers
+    # -------------------------------------------------------------- classifiers
 
     def train_classifier(self, collection_id: str, payload: Mapping[str, Any]) -> Mapping[str, Any]:
         """POST /collections/{collection_id}/classifiers."""
@@ -865,7 +865,7 @@ class DatasetSearchAdapter:
         )
         return dict(body) if isinstance(body, dict) else {"result": body}
 
-    # ------------------------------------------------------ EA datasets/projects
+    # --------------------------------------------------------- datasets/projects
 
     def list_datasets(self) -> Mapping[str, Any]:
         """GET /datasets."""
@@ -951,10 +951,10 @@ class DatasetSearchAdapter:
         body = self._request("DELETE", f"/projects/{project_id}", timeout=120)
         return dict(body) if isinstance(body, dict) else {"result": body}
 
-    # ------------------------------------------------------- EA misc/telemetry
+    # ---------------------------------------------------------- misc/telemetry
 
     def linear_probe(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
-        """POST /linear_probe (deprecated upstream but still part of EA route surface)."""
+        """POST /linear_probe (deprecated upstream but still part of the extended route surface)."""
         return self._post_mapping("/linear_probe", payload)
 
     def metrics(self) -> bytes:

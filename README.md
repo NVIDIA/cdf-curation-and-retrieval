@@ -90,8 +90,8 @@ Before clone or the first `docker pull`:
   refer to [Installation](docs/user-guide/installation.md))
 
 ```bash
-git clone https://github.com/NVIDIA/paidf-curation-and-retrieval.git
-cd paidf-curation-and-retrieval
+git clone https://github.com/NVIDIA/cdf-curation-and-retrieval.git
+cd cdf-curation-and-retrieval
 cp .env.example .env
 uv sync --extra dev
 docker login nvcr.io
@@ -348,7 +348,7 @@ qualify the selected Curator image independently. Full matrix:
 ## Project Structure
 
 ```text
-paidf-curation-and-retrieval/
+cdf-curation-and-retrieval/
 ├── .env.example            Image pin template + CDS_PROFILE
 ├── adapters/               Curator, Dataset Search HTTP, Data Mining, Docker
 ├── apps/                   Orchestration helpers (invoked by Make)
@@ -359,7 +359,6 @@ paidf-curation-and-retrieval/
 ├── docs/user-guide/        Customer documentation
 ├── docs/developer/         Contributor architecture notes
 ├── docs/assets/            Architecture diagrams
-├── docs/architecture/      Contributor architecture notes
 ├── skills/                 Agent skill for operator workflows
 ├── tests/unit/             Unit tests (no live GPU required)
 ├── Makefile                Operator UX

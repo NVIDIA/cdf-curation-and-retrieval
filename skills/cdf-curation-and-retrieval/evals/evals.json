@@ -150,19 +150,19 @@
     "id": "15",
     "question": "Run configs/split.yaml now; it contains enable_sam3: true and enable_event_captioning: true.",
     "expected_skill": "cdf-curation-and-retrieval",
-    "ground_truth": "Skill explains that CDF v1.1 fails mandatory config preflight before Docker, rejects both deprecated keys in flat or args-nested Curator configs, identifies sam3 and event_captioning as canonical, and reports a human-readable Click error with a nonzero exit.",
+    "ground_truth": "Skill explains that CDF v1.2 fails mandatory config preflight before Docker, rejects both deprecated keys in flat or args-nested Curator configs, identifies sam3 and event_captioning as canonical, and reports a human-readable Click error with a nonzero exit.",
     "expected_behavior": [
       "The skill does not start Docker or Make.",
       "The skill rejects enable_sam3 and enable_event_captioning.",
       "The skill identifies sam3 and event_captioning as canonical.",
-      "The skill states that CDF v1.1 validates before constructing the Docker runner."
+      "The skill states that CDF v1.2 validates before constructing the Docker runner."
     ]
   },
   {
     "id": "16",
     "question": "For automation, define the config-validation error JSON I should parse and tell me whether every current cdf_curation_and_retrieval failure already emits it.",
     "expected_skill": "cdf-curation-and-retrieval",
-    "ground_truth": "Skill states that CDF v1.1 Curator config preflight uses ordinary human-readable Click errors and does not promise a uniform JSON error contract. It instructs automation to check the nonzero exit status and consume the error text.",
+    "ground_truth": "Skill states that CDF v1.2 Curator config preflight uses ordinary human-readable Click errors and does not promise a uniform JSON error contract. It instructs automation to check the nonzero exit status and consume the error text.",
     "expected_behavior": [
       "The skill does not invent a code, message, and details contract.",
       "The skill does not promise uniform JSON errors.",

@@ -17,7 +17,7 @@ apps/                      Click delivery, workflow modules, composition root
 packages/                  Domain types, ports, analytics
 configs/                   Full Curator reference YAMLs (split, dedup, shard, image)
 cookbook/                  Scenario recipes
-docs/                      Operator user-guide, architecture, PLC artifacts
+docs/                      Operator user-guide and architecture
 skills/                    Agent skills (SKILL.md per skill)
 tests/unit/                Unit tests
 .external/                 Ignored optional upstream source checkouts

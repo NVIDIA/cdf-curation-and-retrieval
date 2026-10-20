@@ -18,6 +18,7 @@ import yaml
 COMPOSE = Path(__file__).resolve().parents[2] / "deploy/compose/docker-compose.yml"
 COMPOSE_EMBED = Path(__file__).resolve().parents[2] / "deploy/compose/docker-compose.embed.yml"
 MAKEFILE = Path(__file__).resolve().parents[2] / "Makefile"
+SHIPPED_COMPOSE_FILES = ("docker-compose.embed.yml", "docker-compose.yml")
 
 
 def _load(path: Path) -> dict:
@@ -138,21 +139,18 @@ class TestNoWebUi:
 class TestOnlyPublicOverlaysShip:
     """Only the base stack and the public embed overlay are shipped and wired."""
 
-    REMOVED = ("docker-compose.ea.yml", "docker-compose.prerelease.yml")
-
     def test_compose_dir_ships_only_base_and_embed(self) -> None:
         shipped = sorted(path.name for path in COMPOSE.parent.glob("docker-compose*.yml"))
 
-        assert shipped == ["docker-compose.embed.yml", "docker-compose.yml"]
+        assert shipped == list(SHIPPED_COMPOSE_FILES)
 
-    def test_makefile_references_no_removed_overlay(self) -> None:
+    def test_makefile_references_only_shipped_overlays(self) -> None:
         text = MAKEFILE.read_text(encoding="utf-8")
 
-        for name in self.REMOVED:
-            assert name not in text, f"Makefile still references {name}"
-        assert "DATASET_SEARCH_COMPOSE_EA" not in text
-        assert "DATASET_SEARCH_COMPOSE_PRERELEASE" not in text
-        assert "ifeq ($(CDS_PROFILE),prerelease)" not in text
+        referenced = set(re.findall(r"docker-compose[\w.-]*\.yml", text))
+        assert referenced <= set(SHIPPED_COMPOSE_FILES), referenced
+        compose_vars = set(re.findall(r"\bDATASET_SEARCH_COMPOSE\w*", text))
+        assert compose_vars == {"DATASET_SEARCH_COMPOSE", "DATASET_SEARCH_COMPOSE_EMBED"}
 
     @pytest.mark.skipif(shutil.which("make") is None, reason="make is not installed")
     def test_internal_profile_starts_only_the_base_stack(self) -> None:
@@ -168,7 +166,8 @@ class TestOnlyPublicOverlaysShip:
         )
 
         assert up_line, f"no compose invocation in dry run:\n{result.stdout}{result.stderr}"
-        assert "docker-compose.ea.yml" not in result.stdout
+        started = set(re.findall(r"docker-compose[\w.-]*\.yml", up_line))
+        assert started <= set(SHIPPED_COMPOSE_FILES), started
 
 
 class TestInternalPullKeepsExtras:
@@ -215,7 +214,7 @@ class TestPublicProfileIsNgcOnly:
     """The public profile is the OSS path and must never reach a private registry.
 
     `.env` and `local.env` are included before the image defaults, so `?=` would
-    let an EA pin silently retarget public. These pins are therefore
+    let an internal-profile pin silently retarget public. These pins are therefore
     assigned, not defaulted.
     """
 
@@ -224,7 +223,7 @@ class TestPublicProfileIsNgcOnly:
         "DATASET_SEARCH_TAG": "1.2.0",
         "COSMOS_EMBED_IMAGE": "nvcr.io/nvidia/blueprint/cosmos-embed1-oss:1.2.0",
     }
-    EA_EXTRAS = ("CDS_POSTGRES_IMAGE", "CAPTION_EMBED_NIM_IMAGE", "CRADIO_NIM_IMAGE")
+    INTERNAL_EXTRAS = ("CDS_POSTGRES_IMAGE", "CAPTION_EMBED_NIM_IMAGE", "CRADIO_NIM_IMAGE")
 
     def _public_block(self) -> str:
         text = MAKEFILE.read_text(encoding="utf-8")
@@ -241,21 +240,21 @@ class TestPublicProfileIsNgcOnly:
                 f"{name} uses ?= on the public profile, so .env / local.env wins"
             )
 
-    def test_public_block_empties_entitled_extras(self) -> None:
+    def test_public_block_empties_internal_extras(self) -> None:
         block = self._public_block()
-        for name in self.EA_EXTRAS:
+        for name in self.INTERNAL_EXTRAS:
             assert re.search(rf"^{name}\s*=\s*$", block, re.MULTILINE), (
                 f"{name} is not emptied on the public profile"
             )
 
     def _resolved(self, profile: str, var: str) -> str:
-        """Resolve a variable with EA pins exported, as a stale local.env would."""
+        """Resolve a variable with internal-profile pins exported, as a stale local.env would."""
         env = dict(os.environ)
-        env["DATASET_SEARCH_REGISTRY"] = "ghcr.io/example/private-ea/cosmos-dataset-search"
-        env["DATASET_SEARCH_TAG"] = "entitled-0.0.0"
-        env["COSMOS_EMBED_IMAGE"] = "ghcr.io/example/private-ea/cosmos-embed1:ea"
-        for name in self.EA_EXTRAS:
-            env[name] = f"ghcr.io/example/private-ea/{name.lower()}:ea"
+        env["DATASET_SEARCH_REGISTRY"] = "ghcr.io/example/internal/cosmos-dataset-search"
+        env["DATASET_SEARCH_TAG"] = "internal-0.0.0"
+        env["COSMOS_EMBED_IMAGE"] = "ghcr.io/example/internal/cosmos-embed1:internal"
+        for name in self.INTERNAL_EXTRAS:
+            env[name] = f"ghcr.io/example/internal/{name.lower()}:internal"
         root = Path(__file__).resolve().parents[2]
         makefile = f"show-var:\n\t@echo $({var})\n"
         # Run against a copy in an empty directory. The Makefile -includes
@@ -276,25 +275,25 @@ class TestPublicProfileIsNgcOnly:
         return result.stdout.strip().splitlines()[-1] if result.stdout.strip() else ""
 
     @pytest.mark.skipif(shutil.which("make") is None, reason="make is not installed")
-    def test_entitled_pins_cannot_retarget_public(self) -> None:
+    def test_internal_pins_cannot_retarget_public(self) -> None:
         for name, value in self.NGC_PINS.items():
             assert self._resolved("public", name) == value, (
-                f"{name} on the public profile was retargeted by an entitled pin"
+                f"{name} on the public profile was retargeted by an internal-profile pin"
             )
 
     @pytest.mark.skipif(shutil.which("make") is None, reason="make is not installed")
-    def test_entitled_extras_cannot_reach_a_public_pull(self) -> None:
-        for name in self.EA_EXTRAS:
+    def test_internal_extras_cannot_reach_a_public_pull(self) -> None:
+        for name in self.INTERNAL_EXTRAS:
             assert self._resolved("public", name) == "", (
                 f"{name} leaked into the public profile from the environment"
             )
 
     @pytest.mark.skipif(shutil.which("make") is None, reason="make is not installed")
     def test_internal_profile_can_still_be_repinned(self) -> None:
-        """Forcing public must not take EA pinning away from the internal profile."""
+        """Forcing public must not take pinning away from the internal profile."""
         resolved = self._resolved("internal", "DATASET_SEARCH_TAG")
 
-        assert resolved == "entitled-0.0.0", f"internal profile lost its pin: {resolved!r}"
+        assert resolved == "internal-0.0.0", f"internal profile lost its pin: {resolved!r}"
 
     def _image_check_recipe(self) -> str:
         text = MAKEFILE.read_text(encoding="utf-8")

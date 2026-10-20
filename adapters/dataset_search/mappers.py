@@ -77,7 +77,7 @@ def search_request_body(query: SearchQuery) -> dict[str, Any]:
     has_caption_query = bool(query.caption_query) and bool(str(query.caption_query).strip())
     if modality_count == 0 and not has_caption_query:
         raise ValueError(
-            "SearchQuery requires exactly one modality, or caption_query for EA caption-only search"
+            "SearchQuery requires exactly one modality, or caption_query for caption-only search"
         )
     if modality_count > 1:
         query_payload(query)

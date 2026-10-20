@@ -14,8 +14,7 @@ return here.
 
 ## Architecture
 
-- [Architecture](architecture.md): Make, engines, S/B mining, data flow
-- [Clean architecture notes](../architecture/cdf-clean-architecture.md)
+- [Architecture](architecture.md): Make, code layers, engines, S/B mining, data flow
 
 ## Contributor setup
 

@@ -246,7 +246,7 @@ def flush(collection_id: str, cds_url: str | None) -> None:
 @click.option("--project-source", "project_source", multiple=True)
 @click.option("--clf-json", default=None, help="JSON linear-classifier payload")
 @click.option(
-    "--caption-query", default=None, help="EA caption keyword query for fused/caption-only search"
+    "--caption-query", default=None, help="Caption keyword query for fused/caption-only search"
 )
 @click.option("--auto-rewrite/--no-auto-rewrite", default=None)
 @click.option("--caption-extra-query", "caption_extra_queries", multiple=True)
@@ -488,7 +488,7 @@ def jobs(cds_url: str | None) -> None:
 
 @click.group("captions")
 def captions_group() -> None:
-    """EA caption CRUD, keyword search, rewrite, and stats."""
+    """Caption CRUD, keyword search, rewrite, and stats."""
 
 
 @captions_group.command("add")
@@ -555,7 +555,7 @@ dataset_search_group.add_command(captions_group)
 
 @click.group("annotations")
 def annotations_group() -> None:
-    """EA annotation labels and review workflows."""
+    """Annotation labels and review workflows."""
 
 
 @annotations_group.command("list")
@@ -690,7 +690,7 @@ dataset_search_group.add_command(annotations_group)
 
 @click.group("classifiers")
 def classifiers_group() -> None:
-    """EA annotation-trained classifiers."""
+    """Annotation-trained classifiers."""
 
 
 @classifiers_group.command("train")
@@ -735,7 +735,7 @@ dataset_search_group.add_command(classifiers_group)
 
 @click.group("datasets")
 def datasets_group() -> None:
-    """EA dataset registry resources."""
+    """Dataset registry resources."""
 
 
 @datasets_group.command("list")
@@ -793,7 +793,7 @@ dataset_search_group.add_command(datasets_group)
 
 @click.group("projects")
 def projects_group() -> None:
-    """EA project registry and saved-result resources."""
+    """Project registry and saved-result resources."""
 
 
 @projects_group.command("list")
@@ -877,7 +877,7 @@ dataset_search_group.add_command(projects_group)
 @click.option("--json-file", default=None, type=click.Path(exists=True, dir_okay=False))
 @click.option("--cds-url", default=None)
 def linear_probe(raw_json: str | None, json_file: str | None, cds_url: str | None) -> None:
-    """Invoke EA /linear_probe for deprecated compatibility coverage."""
+    """Invoke /linear_probe for deprecated compatibility coverage."""
     _echo_json(_client(cds_url).linear_probe(_load_json_payload(raw_json, json_file)))
 
 

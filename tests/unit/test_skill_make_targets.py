@@ -23,7 +23,7 @@ def _skill_roots() -> list[Path]:
     """Discover every skill pack under ``skills/`` that has a ``SKILL.md``.
 
     Dynamic discovery keeps this test tolerant of a repo rename (e.g.
-    PAIDF→CDF) and of adding further skill packs over time. The caller is
+    a brand prefix change) and of adding further skill packs over time. The caller is
     expected to assert non-emptiness to guard against a vacuous pass if the
     whole directory ever disappears.
     """

@@ -87,9 +87,9 @@ gated weights need it.
 # Adjust MODELS_DIR and GPU indices for your host.
 export MODELS_DIR=${MODELS_DIR:-$HOME/models}
 
-docker rm -f paidf-vlm paidf-llm 2>/dev/null || true
+docker rm -f cdf-vlm cdf-llm 2>/dev/null || true
 
-docker run -d --name paidf-vlm --gpus '"device=0"' --ipc=host \
+docker run -d --name cdf-vlm --gpus '"device=0"' --ipc=host \
   -p 8000:8000 \
   -e HF_TOKEN="$HF_TOKEN" \
   -v "$MODELS_DIR:/models:ro" \
@@ -104,7 +104,7 @@ docker run -d --name paidf-vlm --gpus '"device=0"' --ipc=host \
     --max-num-seqs 1 \
     --enforce-eager
 
-docker run -d --name paidf-llm --gpus '"device=1"' --ipc=host \
+docker run -d --name cdf-llm --gpus '"device=1"' --ipc=host \
   -p 8002:8002 \
   -e HF_TOKEN="$HF_TOKEN" \
   -v "$MODELS_DIR:/models:ro" \
@@ -161,7 +161,7 @@ the host-gateway mapping. Refer to [Failure Modes](#failure-modes).
 ### Tear Down
 
 ```bash
-docker rm -f paidf-vlm paidf-llm
+docker rm -f cdf-vlm cdf-llm
 ```
 
 ## Scenario B Hosted Endpoints
@@ -210,7 +210,7 @@ or TAO.
 | Symptom | Likely cause | Action |
 |---------|--------------|--------|
 | Curator cannot reach endpoint | Missing host-gateway / wrong URL | Set `EXTRA_DOCKER_ARGS`; check host `/v1/models` again |
-| `/v1/models` fails on host | Endpoint not ready or wrong port | `docker logs paidf-vlm` / `paidf-llm`; wait for ready |
+| `/v1/models` fails on host | Endpoint not ready or wrong port | `docker logs cdf-vlm` / `cdf-llm`; wait for ready |
 | VLM HTTP 500, `EngineDeadError`, deepstack token errors | Endpoint overload / bad profile | Relaunch VLM with the stable flags above (`--max-num-seqs 1`) |
 | Job appears hung | Serialized VLM queue | Check VLM logs for queue progress before killing |
 | Auth errors on hosted API | Bad or missing key | Fix key in `local.env`; do not put it on Make argv |

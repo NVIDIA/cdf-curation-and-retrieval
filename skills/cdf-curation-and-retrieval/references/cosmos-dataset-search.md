@@ -158,8 +158,8 @@ make stage-cds-artifact \
   STAGE_SOURCE=$PWD/data/cds-ce1.parquet \
   STAGE_DESTINATION=s3://bucket/cds-ce1.parquet \
   OBJECT_STORE_ENDPOINT=https://objects.example \
-  OBJECT_STORE_ACCESS_KEY_ENV=PAIDF_S3_ACCESS_KEY \
-  OBJECT_STORE_SECRET_KEY_ENV=PAIDF_S3_SECRET_KEY
+  OBJECT_STORE_ACCESS_KEY_ENV=CDF_S3_ACCESS_KEY \
+  OBJECT_STORE_SECRET_KEY_ENV=CDF_S3_SECRET_KEY
 ```
 
 ## Machine-readable automation

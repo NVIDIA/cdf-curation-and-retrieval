@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the CDS EA external-caption handoff."""
+"""Unit tests for the CDS external-caption handoff."""
 
 from __future__ import annotations
 
@@ -104,7 +104,7 @@ def test_load_indexed_clip_ids_from_manifest_and_lines(tmp_path: Path) -> None:
     assert load_indexed_clip_ids(lines) == {"a", "b"}
 
 
-def test_caption_upload_calls_actual_ea_route(tmp_path: Path) -> None:
+def test_caption_upload_calls_actual_caption_route(tmp_path: Path) -> None:
     parquet = tmp_path / "captions.parquet"
     parquet.write_bytes(b"parquet")
     session = MagicMock()
@@ -145,7 +145,7 @@ def test_caption_stats_rejects_non_object_json() -> None:
         CaptionAdapter("https://cds.example", session=session).stats()
 
 
-def test_caption_bulk_insert_calls_actual_ea_route_without_retry() -> None:
+def test_caption_bulk_insert_calls_actual_caption_route_without_retry() -> None:
     session = MagicMock()
     session.request.return_value = _response(
         {"status": "success", "total_rows_inserted": 2, "files_processed": 1}
@@ -190,7 +190,7 @@ def test_caption_bulk_insert_validates_s3_and_https() -> None:
         )
 
 
-def test_caption_search_calls_verified_ea_contract() -> None:
+def test_caption_search_calls_verified_caption_contract() -> None:
     session = MagicMock()
     session.request.return_value = _response({"clip_ids": ["clip-1", "clip-2"], "count": 2})
 

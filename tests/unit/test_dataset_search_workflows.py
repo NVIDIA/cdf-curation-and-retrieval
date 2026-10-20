@@ -58,7 +58,7 @@ def test_build_search_query_rejects_non_object_json_filters() -> None:
         build_search_query(SearchQueryInput(filters_json='["camera_id"]'))
 
 
-def test_build_search_query_accepts_ea_search_fields() -> None:
+def test_build_search_query_accepts_extended_search_fields() -> None:
     query = build_search_query(
         SearchQueryInput(
             caption_query="forklift near loading dock",

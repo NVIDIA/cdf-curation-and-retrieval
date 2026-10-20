@@ -219,7 +219,7 @@ def test_bulk_insert_cli_exposes_no_direct_secret_option() -> None:
     assert "--secret-key " not in result.output
 
 
-def test_ds_search_cli_passes_ea_search_options(monkeypatch) -> None:
+def test_ds_search_cli_passes_extended_search_options(monkeypatch) -> None:
     client = MagicMock()
     client.search.return_value = []
     monkeypatch.setattr("apps.cli.dataset_search_cmds._client", lambda _: client)
@@ -313,7 +313,7 @@ def test_ds_captions_and_annotations_cli_json_payloads(monkeypatch) -> None:
     assert client.create_annotation.call_args.args[0]["label"] == "person"
 
 
-def test_ds_ea_resource_groups_are_exposed() -> None:
+def test_ds_extended_resource_groups_are_exposed() -> None:
     result = CliRunner().invoke(main, ["ds", "--help"])
 
     assert result.exit_code == 0

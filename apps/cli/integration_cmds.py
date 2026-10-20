@@ -453,7 +453,7 @@ def prepare_cds_ce1_for_tdm(
 
 @integration_group.group("captions")
 def captions_group() -> None:
-    """Build, validate, and submit the CDS EA external-caption contract."""
+    """Build, validate, and submit the CDS external-caption contract."""
 
 
 @captions_group.command("readiness")
@@ -466,7 +466,7 @@ def captions_group() -> None:
 )
 @click.option("--pipeline", "required_pipeline", required=True)
 def caption_readiness(cds_url: str, cds_profile: str, required_pipeline: str) -> None:
-    """Emit selected-flow EA external-caption readiness as JSON."""
+    """Emit selected-flow external-caption readiness as JSON."""
     result = run_caption_readiness(
         CaptionReadinessRequest(
             cds_profile=cds_profile,
@@ -492,7 +492,7 @@ def caption_search(
     data_sources: tuple[str, ...],
     cds_url: str,
 ) -> None:
-    """Run finite EA caption-keyword acceptance; no fused retrieval."""
+    """Run finite caption-keyword acceptance; no fused retrieval."""
     try:
         result = search_captions(
             CaptionSearchRequest(

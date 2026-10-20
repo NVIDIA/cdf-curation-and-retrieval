@@ -931,7 +931,7 @@ class TestDatasetSearchAdapter:
         assert collections[0].total_documents_count == 12
         assert session.request.call_args.args[1].endswith("/v1/pipelines/p/collections")
 
-    def test_search_supports_ea_caption_annotation_and_classifier_fields(self):
+    def test_search_supports_caption_annotation_and_classifier_fields(self):
         session = MagicMock()
         session.request.return_value = _json_response({"retrievals": [{"id": "d1", "score": 0.9}]})
         adapter = DatasetSearchAdapter("http://cds.example", session=session)
@@ -999,7 +999,7 @@ class TestDatasetSearchAdapter:
         assert payload["query"] == [{"text": "hard hat"}]
         assert "caption_query" not in payload
 
-    def test_ea_caption_annotation_classifier_and_registry_wrappers(self):
+    def test_caption_annotation_classifier_and_registry_wrappers(self):
         session = MagicMock()
         session.request.side_effect = [
             _json_response({"status": "ok", "clip_id": "clip-1"}),
@@ -1036,7 +1036,7 @@ class TestDatasetSearchAdapter:
         assert ("POST", "http://cds.example/v1/projects") in calls
         assert ("POST", "http://cds.example/v1/linear_probe") in calls
 
-    def test_ea_project_export_and_metrics_use_expected_content_paths(self):
+    def test_project_export_and_metrics_use_expected_content_paths(self):
         session = MagicMock()
         csv_response = MagicMock(
             status_code=200,

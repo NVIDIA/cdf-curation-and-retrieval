@@ -137,21 +137,13 @@ configs/*_kpi_eval.yaml
 .pytest_cache/
 runs/
 
-# Local SQA bundles/evidence copies. Keep release-controlled SQA packages out of
-# ordinary product commits unless explicitly promoted into tracked source.
+# Local working folders (not tracked).
 /SQA/
 /SQA_v*/
 /sqa_data/
 /osrb_audit/
-
-# Local-only E2E acceptance test harness (cosmos-curator container smoke tests).
-# Driver scripts and fixtures are user-specific; do not track.
 /E2E-test/
-
 /docs/plc/*
-
-# Local OSRB/SWIPAT audit workbooks and drafts.
-/osrb_audit/
 
 # Local Claude Code files: keep settings/local state untracked, but DO track the
 # skills symlink so Claude Code discovers the canonical top-level skills/ dir.

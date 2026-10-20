@@ -53,8 +53,8 @@ Never put credentials on Make command lines, in cookbook YAML, or in logs.
 ## Clone and Sync
 
 ```bash
-git clone https://github.com/NVIDIA/paidf-curation-and-retrieval.git
-cd paidf-curation-and-retrieval
+git clone https://github.com/NVIDIA/cdf-curation-and-retrieval.git
+cd cdf-curation-and-retrieval
 cp .env.example .env
 uv sync --extra dev
 docker login nvcr.io

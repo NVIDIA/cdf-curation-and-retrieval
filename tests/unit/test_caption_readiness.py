@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for selected-flow CDS EA external-caption readiness."""
+"""Unit tests for selected-flow CDS external-caption readiness."""
 
 from __future__ import annotations
 

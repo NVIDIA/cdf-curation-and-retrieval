@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Capability-based readiness checks for selected CDS EA integration flows."""
+"""Capability-based readiness checks for selected CDS integration flows."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def external_caption_readiness(
     cds_profile: str,
     required_pipeline: str,
 ) -> dict[str, Any]:
-    """Check only dependencies required by the EA external-caption handoff."""
+    """Check only dependencies required by the external-caption handoff."""
     result: dict[str, Any] = {
         "flow": "external_caption",
         "profile": cds_profile,
@@ -36,7 +36,7 @@ def external_caption_readiness(
         },
     }
     if cds_profile != "internal":
-        result["error"] = "External caption integration requires CDS_PROFILE=internal (EA)"
+        result["error"] = "External caption integration requires CDS_PROFILE=internal"
         return result
     if not required_pipeline.strip():
         result["error"] = "required_pipeline must be non-empty"

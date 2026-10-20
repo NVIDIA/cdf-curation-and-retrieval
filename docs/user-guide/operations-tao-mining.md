@@ -19,7 +19,7 @@ Run image and text embeddings and nearest-neighbor mining with Make.
 
 Product context (Curator producers feeding mining):
 [Developer architecture](../developer/architecture.md) ·
-[`../assets/CDF_CC_and_TDM.png`](../assets/CDF_CC_and_TDM.png).
+[`../assets/CDF-CC-CDS-TDM.png`](../assets/CDF-CC-CDS-TDM.png).
 
 Prerequisites: `make pull-data-mining` and `make check-data-mining-image`.
 Keep all data and local model artifacts under `DATA_DIR` (mounted at `/data`).

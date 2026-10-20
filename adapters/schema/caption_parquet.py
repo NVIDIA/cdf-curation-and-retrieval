@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Build and validate the CDS EA external-caption parquet contract."""
+"""Build and validate the CDS external-caption parquet contract."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ _OPTIONAL_COLUMNS = ("start_time", "end_time", "model_name", "data_source")
 
 
 class CaptionParquetError(ValueError):
-    """Caption rows do not satisfy the EA upload contract."""
+    """Caption rows do not satisfy the caption upload contract."""
 
 
 def _clean_identity(value: Any) -> str:
@@ -116,7 +116,7 @@ def build_caption_parquet(
     *,
     indexed_clip_ids: set[str] | None = None,
 ) -> Path:
-    """Write validated `clip_id`/`summary` rows for CDS EA caption upload."""
+    """Write validated `clip_id`/`summary` rows for CDS caption upload."""
     frame = validate_caption_frame(pd.DataFrame(list(rows)), indexed_clip_ids=indexed_clip_ids)
     columns = [column for column in (*_REQUIRED_COLUMNS, *_OPTIONAL_COLUMNS) if column in frame]
     output = Path(output_path)

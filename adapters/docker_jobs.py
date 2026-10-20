@@ -53,7 +53,7 @@ def _temporary_experiment_spec(
 ) -> Iterator[tuple[str, dict[str, Any]]]:
     """Own one generated TAO experiment spec for a synchronous Docker call."""
     spec_yaml = yaml.safe_dump(dict(payload), sort_keys=False)
-    with tempfile.TemporaryDirectory(prefix="paidf-tao-spec-") as directory:
+    with tempfile.TemporaryDirectory(prefix="cdf-tao-spec-") as directory:
         host_path = Path(directory) / "experiment.yaml"
         host_path.write_text(spec_yaml, encoding="utf-8")
         evidence = {

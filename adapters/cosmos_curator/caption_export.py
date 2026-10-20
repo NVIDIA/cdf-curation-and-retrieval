@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Convert Cosmos Curator clip metas into CDS EA caption rows.
+"""Convert Cosmos Curator clip metas into CDS caption rows.
 
 Curator writes per-clip JSON under ``{base_dir}/metas/v0/{uuid}.json`` with
 caption text on window objects (for example ``qwen3_vl_30b_fp8_caption``).
